@@ -73,6 +73,9 @@ export function useGameEngine(onHeroAttackCallback) {
 
   // Estado del Enemigo
   const [enemy, setEnemy] = useState({
+    name: 'Sentinel-Drone',
+    emoji: '👁️',
+    img: '/enemies/sentinel-drone.png',
     maxHp: calcEnemyMaxHp(1),
     hp: calcEnemyMaxHp(1),
     isBoss: false,
