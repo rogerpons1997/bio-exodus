@@ -6,32 +6,29 @@ import { BOXES, ITEMS, RARITY_NAMES, RARITY_COLORS } from './data/lootboxes';
 function App() {
   const [activeTab, setActiveTab] = useState(null);
   const [selectedCepa, setSelectedCepa] = useState(null);
-  const [selectedBox, setSelectedBox] = useState(null); // para modal de probabilidades
-  const [revealedItem, setRevealedItem] = useState(null); // para modal de reveal
-  const [pickingSlot, setPickingSlot] = useState(null); // { charId, slotIndex } para picker de inventario
-  // Filtros compartidos (inventario en Cajas y picker de equipamiento)
-  const [filterStar, setFilterStar] = useState(null);   // null | 1-5
-  const [filterStat, setFilterStat] = useState(null);   // null | 'dps' | 'attackSpeed' | 'gold' | 'crit'
-  const [filterType, setFilterType] = useState(null);   // null | 'head' | 'chest' | 'weapon'
-  const [boxesTab, setBoxesTab] = useState('capsules'); // 'capsules' | 'market'
-  const [inventoryTab, setInventoryTab] = useState('list'); // 'list' | 'scrap' | 'lab'
-  const [fusionItems, setFusionItems] = useState([]);
-  const [fusionModalOpen, setFusionModalOpen] = useState(false);
-  // Scrap bulk confirmation
-  const [scrapConfirmData, setScrapConfirmData] = useState(null); // null | { stars, items[], totalDm }
-  // Fusion flow: confirm → animate → reveal
-  const [fusionConfirmData, setFusionConfirmData] = useState(null); // null | { statWeights[], newItem, baseStars, uids[] }
-  const [fusionAnimating, setFusionAnimating] = useState(false);
-  const [fusionResultItem, setFusionResultItem] = useState(null);
-  const [multiRevealItems, setMultiRevealItems] = useState(null); // null | Item[] — bulk box purchase results
-  const [statsOpen, setStatsOpen] = useState(false);    // Panel de estadísticas
+  const [selectedBox, setSelectedBox] = useState(null);
+  const [revealedItem, setRevealedItem] = useState(null);
+  const [pickingSlot, setPickingSlot] = useState(null);
+  const [filterStar, setFilterStar] = useState(null);
+  const [filterStat, setFilterStat] = useState(null);
+  const [filterType, setFilterType] = useState(null);
+  const [boxesTab, setBoxesTab] = useState('capsules');
+  const [inventoryTab, setInventoryTab] = useState('list');
   const [damageTexts, setDamageTexts] = useState([]);
   const [dpsTexts, setDpsTexts] = useState([]);
-  const [heroAnimations, setHeroAnimations] = useState({});
-  const [showSplash, setShowSplash] = useState(true);
-  const [adPlaying, setAdPlaying] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
-  const [adResult, setAdResult] = useState(null); // null | { success: boolean, msg: string }
+  const [showSplash, setShowSplash] = useState(true);
+  const [multiRevealItems, setMultiRevealItems] = useState(null);
+  const [heroAnimations, setHeroAnimations] = useState({});
+  const [fusionModalOpen, setFusionModalOpen] = useState(false);
+  const [fusionItems, setFusionItems] = useState([]);
+  const [fusionConfirmData, setFusionConfirmData] = useState(null);
+  const [fusionAnimating, setFusionAnimating] = useState(false);
+  const [fusionResultItem, setFusionResultItem] = useState(null);
+  const [scrapConfirmData, setScrapConfirmData] = useState(null);
+  const [adPlaying, setAdPlaying] = useState(false);
+  const [adResult, setAdResult] = useState(null);
   const [, setTick] = useState(0);
 
   // Force re-render every second for timers
@@ -44,22 +41,16 @@ function App() {
 
   const handleHeroAttack = useCallback((char, damageHit, isCrit = false) => {
     const id = Date.now() + Math.random();
-    
-    // Posicionamiento aleatorio en la zona del enemigo (centro superior)
     const x = (40 + Math.random() * 20) + '%';
     const y = (25 + Math.random() * 15) + '%';
-
     setHeroAnimations(prev => ({ ...prev, [char.id]: true }));
     setTimeout(() => setHeroAnimations(prev => ({ ...prev, [char.id]: false })), 150);
-    
     setDpsTexts(prev => [...prev, { id, x, y, color: char.color, val: damageHit, isCrit }]);
     setTimeout(() => setDpsTexts(prev => prev.filter(t => t.id !== id)), 1000);
-    
-    // Feedback visual en el enemigo
     const enemyEl = document.getElementById('main-enemy');
     if (enemyEl) {
       enemyEl.classList.remove('enemy-hit');
-      void enemyEl.offsetWidth; // trigger reflow
+      void enemyEl.offsetWidth;
       enemyEl.classList.add('enemy-hit');
     }
   }, []);
@@ -67,7 +58,6 @@ function App() {
   const game = useGameEngine(handleHeroAttack);
   squadRef.current = game.squad;
 
-  // Lógica de Splash Screen (mínimo 2 segundos)
   React.useEffect(() => {
     if (game.isLoaded) {
       const timer = setTimeout(() => setShowSplash(false), 2000);
@@ -78,12 +68,12 @@ function App() {
   const hpPercent = Math.max(0, (game.enemy.hp / game.enemy.maxHp) * 100);
 
   const onZoneTap = (e) => {
-    game.handleTap();
+    const { damage, isCrit } = game.handleTap();
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left - 20;
     const y = e.clientY - rect.top - 20;
     const id = Date.now() + Math.random();
-    setDamageTexts(prev => [...prev, { id, x, y, val: game.formatNumber(game.tapDamage) }]);
+    setDamageTexts(prev => [...prev, { id, x, y, val: game.formatNumber(damage), isCrit }]);
     setTimeout(() => setDamageTexts(prev => prev.filter(t => t.id !== id)), 800);
   };
 
@@ -755,7 +745,6 @@ function App() {
           key={game.level}
           className={`enemy-sprite ${game.enemy.isBoss ? 'boss-sprite' : ''} ${game.enemy.img ? 'enemy-img-sprite' : ''} ${game.enemy.hp === 0 ? 'enemy-dying' : ''}`}
           style={game.enemy.img ? { background: 'transparent', border: 'none', boxShadow: 'none' } : {}}
-          onClick={onZoneTap}
         >
           {game.enemy.img
             ? <img src={game.enemy.img} alt={game.enemy.name}
@@ -816,7 +805,19 @@ function App() {
         })}
 
         {damageTexts.map(dt => (
-          <div key={dt.id} className="damage-text" style={{ left: dt.x, top: dt.y }}>-{dt.val}</div>
+          <div key={dt.id} 
+            className={`damage-text ${dt.isCrit ? 'is-crit' : ''}`} 
+            style={{ 
+              left: dt.x, 
+              top: dt.y,
+              color: dt.isCrit ? 'var(--accent-red)' : 'white',
+              fontSize: dt.isCrit ? '2.5rem' : '1.5rem',
+              fontWeight: '900',
+              textShadow: dt.isCrit ? '0 0 20px var(--accent-red), 0 0 40px black' : '2px 2px 4px black',
+              zIndex: dt.isCrit ? 30 : 20
+            }}>
+            {dt.isCrit ? '💥 ' : ''}-{dt.val}
+          </div>
         ))}
         {dpsTexts.map(dt => (
           <div key={dt.id} className={`damage-text ${dt.isCrit ? 'is-crit' : 'dps-damage-text'}`} style={{ 
@@ -998,21 +999,32 @@ function App() {
                   </div>
 
 
-                  <div className="shop-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+                    <div className="shop-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
                     {Array.from({ length: 9 }).map((_, i) => {
                       if (i >= game.shopSlotsUnlocked) {
                         const isDMLocked = i < 6;
+                        const dmCosts = { 3: 50, 4: 150, 5: 500 };
+                        const cost = dmCosts[i];
+                        const canAfford = isDMLocked ? game.darkMatter >= cost : false;
+                        
+                        // Solo permitimos desbloquear el SIGUIENTE slot
+                        const isNext = i === game.shopSlotsUnlocked;
+
                         return (
-                          <div key={i} className="shop-slot locked" style={{ background: 'rgba(0,0,0,0.5)', padding: '1rem 0.2rem', borderRadius: '8px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.2)' }}>
-                            <div style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>🔒 Bloqueado</div>
-                            {isDMLocked ? (
-                              <button className="upgrade-btn" style={{marginTop: '0.5rem', width: '100%', fontSize:'0.7rem'}} onClick={() => game.unlockShopSlot('dm')} disabled={game.darkMatter < 200}>
-                                🌌 200
-                              </button>
+                          <div key={i} className="shop-slot locked" style={{ background: 'rgba(0,0,0,0.5)', padding: '0.6rem 0.2rem', borderRadius: '8px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.15)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                            <div style={{fontSize: '0.65rem', color: 'var(--text-secondary)', marginBottom: '0.3rem'}}>🔒 {isDMLocked ? 'Bloqueado' : 'PREMIUM'}</div>
+                            {isNext ? (
+                              isDMLocked ? (
+                                <button className="upgrade-btn" style={{width: '90%', margin: '0 auto', fontSize:'0.7rem', padding: '0.3rem'}} onClick={() => game.unlockShopSlot()} disabled={!canAfford}>
+                                  🌌 {cost}
+                                </button>
+                              ) : (
+                                <button className="upgrade-btn" style={{width: '90%', margin: '0 auto', fontSize:'0.7rem', padding: '0.3rem', background: 'linear-gradient(to right, #7c3aed, #9333ea)', border: '1px solid #c084fc'}} onClick={() => setShopOpen(true)}>
+                                  VIP 💎
+                                </button>
+                              )
                             ) : (
-                              <button className="upgrade-btn" style={{marginTop: '0.5rem', width: '100%', fontSize:'0.7rem', background: 'linear-gradient(to right, #eab308, #d97706)'}} onClick={() => game.unlockShopSlot('premium')}>
-                                💎 Comprar
-                              </button>
+                              <div style={{fontSize: '0.6rem', color: 'rgba(255,255,255,0.2)'}}>{isDMLocked ? `Coste: ${cost}` : 'Elite'}</div>
                             )}
                           </div>
                         );
@@ -1348,10 +1360,11 @@ function App() {
           {activeTab === 'upgrades' && (
             <div className="upgrades-list" style={{ padding: '0 0.5rem' }}>
               {[
-                { id: 'tap', name: 'Impacto Cinético', desc: 'Aumenta el daño directo por cada clic manual en la incubadora.', emoji: '🤜', base: 10, mult: 1.5, color: '#06b6d4', suffix: '', inc: 1, label: 'Daño Base' },
+                { id: 'tap', name: 'Impacto Cinético', desc: 'Aumenta el daño base de tus clics manuales.', emoji: '🤜', base: 10, mult: 1.5, color: '#06b6d4', suffix: '', inc: 10, label: 'Base Tap' },
+                { id: 'tapCrit', name: 'Precisión Quirúrgica', desc: 'Aumenta la probabilidad de asestar un golpe crítico con tus clics (x5 daño).', emoji: '🔪', base: 250, mult: 1.8, color: '#ef4444', suffix: '%', inc: 2, label: 'Tap Crit' },
                 { id: 'gold', name: 'Protocolo de Recolección', desc: 'Optimiza la extracción de biomasa de los enemigos derrotados.', emoji: '💰', base: 500, mult: 1.6, color: '#eab308', suffix: '%', inc: 10, label: 'Bonus Oro' },
                 { id: 'speed', name: 'Acelerador Metabólico', desc: 'Estimula el sistema nervioso de todas las cepas para atacar más rápido.', emoji: '⚡', base: 2000, mult: 1.8, color: '#f59e0b', suffix: '%', inc: 5, label: 'Atq. Speed' },
-                { id: 'crit', name: 'Sobrecarga Sináptica', desc: 'Mejora la precisión de los ataques para alcanzar puntos vitales.', emoji: '🎯', base: 1000, mult: 2.0, color: '#ef4444', suffix: '%', inc: 1, label: 'Prob. Crit.' },
+                { id: 'crit', name: 'Sobrecarga Sináptica', desc: 'Mejora la precisión de los ataques automáticos para alcanzar puntos vitales.', emoji: '🎯', base: 1000, mult: 2.0, color: '#ef4444', suffix: '%', inc: 1, label: 'Prob. Crit.' },
                 { id: 'dps', name: 'Inercia Viral', desc: 'Potencia la virulencia general de todos tus ataques biológicos.', emoji: '🦠', base: 5000, mult: 1.7, color: '#84cc16', suffix: '%', inc: 10, label: 'Global DPS' }
               ].map(upg => {
                 const level = game.upgrades[upg.id] || 0;
@@ -1622,6 +1635,7 @@ function App() {
           </div>
         </div>
       )}
+
     </div>
   </>
 );

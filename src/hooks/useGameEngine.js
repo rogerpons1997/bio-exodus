@@ -52,7 +52,8 @@ export function useGameEngine(onHeroAttackCallback) {
   
   // Upgrades Globales
   const [upgrades, setUpgrades] = useState({
-    tap: 1,
+    tap: 1,      // Nivel de daño base de clic
+    tapCrit: 0,  // Nivel de probabilidad de crítico en clics
     gold: 0,
     speed: 0,
     crit: 0,
@@ -86,6 +87,7 @@ export function useGameEngine(onHeroAttackCallback) {
 
   const [offlineGoldEarned, setOfflineGoldEarned] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [tutorialCompleted, setTutorialCompleted] = useState(false);
   const [attackPercentages, setAttackPercentages] = useState({});
 
   // Valores Computados
@@ -126,7 +128,10 @@ export function useGameEngine(onHeroAttackCallback) {
     return acc + calcCharDPS(char.baseDPS, char.dpsMult, char.level) * dpsItemMult * setMult * upgradeMult;
   }, 0) * prestigeMultiplier;
 
-  const tapDamage = upgrades.tap * prestigeMultiplier * (1 + (upgrades.dps * 0.05));
+  // Daño por Click: 5% del DPS total como base, escalado por el nivel de 'tap'
+  const tapDamage = (totalDps * 0.05) + (upgrades.tap * prestigeMultiplier * 10);
+  const tapCritProb = upgrades.tapCrit * 0.02; // +2% por nivel
+  const tapCritMult = 5; // Los críticos de click pegan x5
 
   // Referencias para el Game Loop
   // heroTimers guardará el progreso de ataque de cada héroe individual
@@ -174,6 +179,11 @@ export function useGameEngine(onHeroAttackCallback) {
         setShopAdRefreshes(parsed.shopAdRefreshes || 0);
         setShopLastReset(parsed.shopLastReset || 0);
         setShopSlotsUnlocked(parsed.shopSlotsUnlocked || 3);
+        setPermanentVIP(!!parsed.permanentVIP);
+        setTutorialCompleted(!!parsed.tutorialCompleted);
+        if (parsed.dailyAdBoosters) {
+          setDailyAdBoosters(parsed.dailyAdBoosters);
+        }
         
         if (parsed.upgrades) {
           setUpgrades(parsed.upgrades);
@@ -259,6 +269,7 @@ export function useGameEngine(onHeroAttackCallback) {
         shopLastReset: st.shopLastReset,
         shopSlotsUnlocked: st.shopSlotsUnlocked,
         permanentVIP: st.permanentVIP,
+        tutorialCompleted: st.tutorialCompleted,
         dailyAdBoosters: st.dailyAdBoosters,
         lastSaveTime: Date.now()
       };
@@ -343,11 +354,8 @@ export function useGameEngine(onHeroAttackCallback) {
     if (enemy.hp === 0) {
       const t = setTimeout(() => onEnemyDefeated(), 400);
       return () => clearTimeout(t);
-    } else if (enemy.isBoss && enemy.timeRemaining === 0 && enemy.hp > 0) {
-      const t = setTimeout(() => onBossFailed(), 400);
-      return () => clearTimeout(t);
     }
-  }, [enemy.hp, enemy.timeRemaining, enemy.isBoss, isLoaded, onEnemyDefeated, onBossFailed]);
+  }, [enemy.hp, enemy.isBoss, isLoaded, onEnemyDefeated]);
 
   const doDamage = useCallback((amount) => {
     setEnemy(e => {
@@ -360,8 +368,15 @@ export function useGameEngine(onHeroAttackCallback) {
   }, []);
 
   const handleTap = useCallback(() => {
-    doDamage(tapDamage);
-  }, [doDamage, tapDamage]);
+    let finalDmg = tapDamage;
+    let isCrit = false;
+    if (Math.random() < tapCritProb) {
+      finalDmg *= tapCritMult;
+      isCrit = true;
+    }
+    doDamage(finalDmg);
+    return { damage: finalDmg, isCrit };
+  }, [doDamage, tapDamage, tapCritProb, tapCritMult]);
 
   // Game Loop (DPS y Boss Timer) a 60 FPS
   useEffect(() => {
@@ -434,12 +449,17 @@ export function useGameEngine(onHeroAttackCallback) {
       setAttackPercentages(newPercentages);
 
       // Lógica de Temporizador para Jefes
-      if (st.enemy.isBoss && st.enemy.timeRemaining > 0 && st.enemy.hp > 0) {
-        setEnemy(e => {
-          if (e.timeRemaining <= 0) return e; 
-          const newTime = e.timeRemaining - delta;
-          return { ...e, timeRemaining: newTime <= 0 ? 0 : newTime };
-        });
+      if (st.enemy.isBoss && st.enemy.hp > 0) {
+        if (st.enemy.timeRemaining <= 0) {
+          // El tiempo se agotó: El jefe gana
+          onBossFailed();
+        } else {
+          setEnemy(e => {
+            if (e.timeRemaining <= 0) return e; 
+            const newTime = e.timeRemaining - delta;
+            return { ...e, timeRemaining: newTime <= 0 ? 0 : newTime };
+          });
+        }
       }
 
       frameId = requestAnimationFrame(loop);
@@ -497,6 +517,7 @@ export function useGameEngine(onHeroAttackCallback) {
   const upgradeGlobal = useCallback((id) => {
     const configs = {
       tap: { base: 10, mult: 1.5 },
+      tapCrit: { base: 250, mult: 1.8 }, // Nueva mejora
       gold: { base: 500, mult: 1.6 },
       speed: { base: 2000, mult: 1.8 },
       crit: { base: 1000, mult: 2.0 },
@@ -528,9 +549,9 @@ export function useGameEngine(onHeroAttackCallback) {
     setCharacters(INITIAL_CHARACTERS);
     setSquad([]);
     setInventory([]);
-    setUpgrades({ tap: 1, gold: 0, speed: 0, crit: 0, dps: 0 });
+    setUpgrades({ tap: 1, tapCrit: 0, gold: 0, speed: 0, crit: 0, dps: 0 });
     spawnEnemy(1);
-    localStorage.removeItem(SAVE_KEY); // Forzamos limpieza del guardado excepto reliquias (se guardará auto en 5 seg)
+    // Ya no hacemos localStorage.removeItem, el auto-save se encargará de guardar el nuevo estado limpio en el siguiente tick.
   };
 
   const clearOfflineGold = () => setOfflineGoldEarned(0);
@@ -735,17 +756,27 @@ export function useGameEngine(onHeroAttackCallback) {
     return true;
   }, [shopItems, darkMatter]);
 
-  const unlockShopSlot = useCallback((type) => {
-    if (shopSlotsUnlocked >= 9) return;
-    if (type === 'dm' && shopSlotsUnlocked < 6) {
-      const cost = 200; // Cost to unlock a slot
-      if (darkMatter < cost) return;
-      setDarkMatter(prev => prev - cost);
-      setShopSlotsUnlocked(prev => prev + 1);
-    } else if (type === 'premium') {
+  const unlockShopSlot = useCallback(() => {
+    const st = stateRef.current;
+    if (st.shopSlotsUnlocked >= 9) return false;
+    
+    // Slots 4, 5, 6 se compran con DM
+    if (st.shopSlotsUnlocked < 6) {
+      const costs = { 3: 50, 4: 150, 5: 500 };
+      const cost = costs[st.shopSlotsUnlocked];
+      if (st.darkMatter >= cost) {
+        setDarkMatter(prev => prev - cost);
+        setShopSlotsUnlocked(prev => prev + 1);
+        return true;
+      }
+    } 
+    // Los slots 7, 8, 9 requieren VIP Permanente
+    else if (st.permanentVIP) {
       setShopSlotsUnlocked(prev => Math.min(9, prev + 1));
+      return true;
     }
-  }, [shopSlotsUnlocked, darkMatter]);
+    return false;
+  }, []);
 
   // Inicialización de la tienda si está vacía
   useEffect(() => {
@@ -770,8 +801,8 @@ export function useGameEngine(onHeroAttackCallback) {
     level, gold, relics, characters, squad, inventory, tapDamage, totalDps, enemy, upgrades,
     upgradeCharacter, toggleSquadMember, handleTap, openBox, openBoxMulti, equipItem, unequipItem, scrapItem, formatNumber, prestige,
     calcCharCost, calcCharDPS, getCharItemBonus, activeSets, darkMatter, computeFusion, commitFusion, bulkScrapItems,
-    shopItems, shopNextRefresh, shopManualRefreshes, shopAdRefreshes, shopSlotsUnlocked, refreshShop, buyShopItem,
-    offlineGoldEarned, clearOfflineGold, upgradeGlobal, isLoaded, attackPercentages,
+    shopItems, shopNextRefresh, shopManualRefreshes, shopAdRefreshes, shopSlotsUnlocked, refreshShop, buyShopItem, unlockShopSlot,
+    offlineGoldEarned, clearOfflineGold, upgradeGlobal, isLoaded, attackPercentages, tutorialCompleted, setTutorialCompleted,
     boosters, permanentVIP, dailyAdBoosters,
     activateBooster: (type, method) => {
       const now = Date.now();
