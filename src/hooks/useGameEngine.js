@@ -93,6 +93,11 @@ export function useGameEngine(onHeroAttackCallback) {
   const [attackPercentages, setAttackPercentages] = useState({});
   const [bgImage, setBgImage] = useState(BATTLE_BGS[0]);
 
+  // Overdrive System
+  const [overdriveProgress, setOverdriveProgress] = useState(0);
+  const [overdriveActive, setOverdriveActive] = useState(false);
+  const [overdriveCooldown, setOverdriveCooldown] = useState(0); // Tiempo restante en segundos
+
   // Valores Computados
   const prestigeMultiplier = 1 + (relics * 1.0);
 
@@ -153,14 +158,15 @@ export function useGameEngine(onHeroAttackCallback) {
 
   // Daño por Click: 5% del DPS total como base, escalado por el nivel de 'tap'
   const synTapBonus = squadSynergies.sangreYHueso ? 1.15 : 1.0;
-  const tapDamage = ((totalDps * 0.05) + (upgrades.tap * prestigeMultiplier * 10)) * synTapBonus;
+  const overdriveTapMult = overdriveActive ? 3 : 1;
+  const tapDamage = ((totalDps * 0.05) + (upgrades.tap * prestigeMultiplier * 10)) * synTapBonus * overdriveTapMult;
   const tapCritProb = upgrades.tapCrit * 0.02; // +2% por nivel
   const tapCritMult = 5; // Los críticos de click pegan x5
 
   // Referencias para el Game Loop
   // heroTimers guardará el progreso de ataque de cada héroe individual
-  const stateRef = useRef({ enemy, gold, totalDps, level, characters, relics, upgrades, squad, inventory, heroTimers: {}, activeSets, squadSynergies, darkMatter, shopItems, shopNextRefresh, shopManualRefreshes, shopAdRefreshes, shopLastReset, shopSlotsUnlocked, bgImage, tutorialCompleted, permanentVIP, dailyAdBoosters });
-  stateRef.current = { enemy, gold, totalDps, level, characters, relics, upgrades, squad, inventory, heroTimers: stateRef.current.heroTimers, activeSets, squadSynergies, darkMatter, shopItems, shopNextRefresh, shopManualRefreshes, shopAdRefreshes, shopLastReset, shopSlotsUnlocked, bgImage, tutorialCompleted, permanentVIP, dailyAdBoosters };
+  const stateRef = useRef({ enemy, gold, totalDps, level, characters, relics, upgrades, squad, inventory, heroTimers: {}, activeSets, squadSynergies, darkMatter, shopItems, shopNextRefresh, shopManualRefreshes, shopAdRefreshes, shopLastReset, shopSlotsUnlocked, bgImage, tutorialCompleted, permanentVIP, dailyAdBoosters, overdriveProgress, overdriveActive, overdriveCooldown });
+  stateRef.current = { enemy, gold, totalDps, level, characters, relics, upgrades, squad, inventory, heroTimers: stateRef.current.heroTimers, activeSets, squadSynergies, darkMatter, shopItems, shopNextRefresh, shopManualRefreshes, shopAdRefreshes, shopLastReset, shopSlotsUnlocked, bgImage, tutorialCompleted, permanentVIP, dailyAdBoosters, overdriveProgress, overdriveActive, overdriveCooldown };
 
   // Referencia al callback para usarlo dentro de useEffect sin dependencias
   const onAttackRef = useRef(onHeroAttackCallback);
@@ -404,6 +410,19 @@ export function useGameEngine(onHeroAttackCallback) {
   }, []);
 
   const handleTap = useCallback(() => {
+    // Cargar barra de Overdrive
+    if (!stateRef.current.overdriveActive && stateRef.current.overdriveCooldown <= 0) {
+      setOverdriveProgress(p => {
+        const next = Math.min(100, p + 4);
+        if (next >= 100) {
+          setOverdriveActive(true);
+          // La duración se maneja en el loop
+          return 100;
+        }
+        return next;
+      });
+    }
+
     let finalDmg = tapDamage;
     let isCrit = false;
     if (Math.random() < tapCritProb) {
@@ -441,7 +460,8 @@ export function useGameEngine(onHeroAttackCallback) {
           const globalSpeedBonus = st.activeSets.speed * 0.5;
           const upgradeSpeedBonus = st.upgrades.speed * 0.05;
           const synSpeedBonus = st.squadSynergies.menteColmena ? 0.15 : 0;
-          const effectiveSpeed = char.attackSpeed / (1 + itemSpeedBonus + globalSpeedBonus + upgradeSpeedBonus + synSpeedBonus);
+          const overdriveSpeedBonus = st.overdriveActive ? 0.20 : 0;
+          const effectiveSpeed = char.attackSpeed / (1 + itemSpeedBonus + globalSpeedBonus + upgradeSpeedBonus + synSpeedBonus + overdriveSpeedBonus);
           
           newPercentages[char.id] = Math.min(100, (st.heroTimers[char.id] / effectiveSpeed) * 100);
 
@@ -499,6 +519,25 @@ export function useGameEngine(onHeroAttackCallback) {
             return { ...e, timeRemaining: newTime <= 0 ? 0 : newTime };
           });
         }
+      }
+
+      // Lógica de Overdrive (Decaimiento, Duración y Cooldown)
+      if (st.overdriveActive) {
+        // El Overdrive dura 8 segundos (usamos el progress como timer de 100 a 0)
+        setOverdriveProgress(p => {
+          const next = p - (100 / 8) * delta;
+          if (next <= 0) {
+            setOverdriveActive(false);
+            setOverdriveCooldown(20); // 20s de cooldown
+            return 0;
+          }
+          return next;
+        });
+      } else if (st.overdriveCooldown > 0) {
+        setOverdriveCooldown(c => Math.max(0, c - delta));
+      } else {
+        // Decaimiento natural si no está activo ni en cooldown
+        setOverdriveProgress(p => Math.max(0, p - 5 * delta));
       }
 
       frameId = requestAnimationFrame(loop);
@@ -843,6 +882,7 @@ export function useGameEngine(onHeroAttackCallback) {
     shopItems, shopNextRefresh, shopManualRefreshes, shopAdRefreshes, shopSlotsUnlocked, refreshShop, buyShopItem, unlockShopSlot,
     offlineGoldEarned, clearOfflineGold, upgradeGlobal, isLoaded, attackPercentages, tutorialCompleted, setTutorialCompleted,
     boosters, permanentVIP, dailyAdBoosters, bgImage,
+    overdriveProgress, overdriveActive, overdriveCooldown,
     activateBooster: (type, method) => {
       const now = Date.now();
       if (method === 'ad') {

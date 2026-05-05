@@ -1578,3 +1578,97 @@ body {
   transform: translateX(4px);
   opacity: 1;
 }
+
+/* ═══ OVERDRIVE STYLES ═══ */
+.overdrive-bar-container {
+  width: 100%;
+  height: 14px;
+  background: rgba(0,0,0,0.6);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+  margin-top: 0.8rem;
+  border: 1px solid rgba(255,255,255,0.05);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.overdrive-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-cyan), #3b82f6);
+  transition: width 0.1s linear;
+  position: relative;
+}
+
+.overdrive-bar-container.active {
+  border-color: rgba(239,68,68,0.5);
+  animation: shake 0.5s infinite ease-in-out;
+}
+
+.overdrive-bar-container.active .overdrive-bar-fill {
+  background: linear-gradient(90deg, #f59e0b, #ef4444);
+  box-shadow: 0 0 15px rgba(239,68,68,0.6);
+}
+
+.overdrive-bar-container.cooldown .overdrive-bar-fill {
+  background: #222;
+  width: 100% !important;
+  opacity: 0.5;
+}
+
+.overdrive-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 900;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  text-shadow: 0 1px 2px rgba(0,0,0,1);
+  z-index: 2;
+}
+
+.overdrive-flame-fx {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  animation: overdriveFlame 1s infinite linear;
+}
+
+@keyframes overdriveFlame {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.overdrive-screen-fx {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 100;
+  box-shadow: inset 0 0 60px rgba(239,68,68,0.3);
+  border: 4px solid rgba(239,68,68,0.2);
+  animation: screenPulse 0.5s infinite ease-in-out;
+}
+
+@keyframes screenPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-1px, 1px); }
+  50% { transform: translate(1px, -1px); }
+  75% { transform: translate(-1px, -1px); }
+}

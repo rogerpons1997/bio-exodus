@@ -903,10 +903,23 @@ function App() {
               {game.formatNumber(game.enemy.hp)} / {game.formatNumber(game.enemy.maxHp)}
             </span>
           </div>
+
+          {/* Overdrive Bar */}
+          <div className={`overdrive-bar-container ${game.overdriveActive ? 'active' : ''} ${game.overdriveCooldown > 0 ? 'cooldown' : ''}`}>
+            <div className="overdrive-bar-fill" style={{ width: `${game.overdriveProgress}%` }}>
+              {game.overdriveActive && <div className="overdrive-flame-fx" />}
+            </div>
+            <div className="overdrive-label">
+              {game.overdriveActive ? '🔥 OVERDRIVE 🔥' : 
+               game.overdriveCooldown > 0 ? `ENFRIANDO... (${Math.ceil(game.overdriveCooldown)}s)` : 
+               'ADRENALINA'}
+            </div>
+          </div>
         </div>
 
         {/* ── Action Area ── */}
         <div className="action-area" onClick={onZoneTap} style={{ '--bg-image': `url('${game.bgImage}')` }}>
+          {game.overdriveActive && <div className="overdrive-screen-fx" />}
           {game.enemy.isBoss && (
             <>
               <div className="boss-timer-badge" style={{ top: '1rem', left: '1rem', right: 'auto', background: 'rgba(239,68,68,0.15)', borderColor: 'rgba(239,68,68,0.4)', color: 'var(--accent-red)' }}>
