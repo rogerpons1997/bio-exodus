@@ -4,6 +4,54 @@ import { useGameEngine } from './hooks/useGameEngine';
 import { BOXES, ITEMS, RARITY_NAMES, RARITY_COLORS } from './data/lootboxes';
 import TutorialOverlay from './components/TutorialOverlay';
 
+const SYNERGY_DATA = {
+  sangreYHueso: {
+    name: 'Sangre y Hueso',
+    role: 'carnicero',
+    icon: '🪚',
+    desc: 'La brutalidad física de tus cepas aumenta la fuerza de impacto.',
+    bonus: '+15% Daño Click, +10% Inercia Global',
+    req: '2+ Carniceros',
+    short: '+15% Click, +10% Inercia'
+  },
+  contaminacionCruzada: {
+    name: 'Contaminación Cruzada',
+    role: 'toxico',
+    icon: '🧪',
+    desc: 'Los residuos químicos permiten una extracción más eficiente de biomasa.',
+    bonus: '+25% Biomasa obtenida de enemigos',
+    req: '2+ Tóxicos',
+    short: '+25% Biomasa'
+  },
+  menteColmena: {
+    name: 'Mente Colmena',
+    role: 'psionico',
+    icon: '⚡',
+    desc: 'La conexión neuronal sincroniza los ataques de todo el escuadrón.',
+    bonus: '+15% Velocidad de Ataque Global',
+    req: '2+ Psiónicos',
+    short: '+15% Vel. Ataque'
+  },
+  depredadoresApex: {
+    name: 'Depredadores Apex',
+    role: 'asesino',
+    icon: '🔪',
+    desc: 'La precisión quirúrgica revela puntos débiles en los Sentinel.',
+    bonus: '+15% Probabilidad de Crítico Global',
+    req: '2+ Asesinos',
+    short: '+15% Prob. Crítico'
+  },
+  mutacionPerfecta: {
+    name: 'Mutación Perfecta',
+    role: 'especialista',
+    icon: '🌟',
+    desc: 'El equilibrio biológico definitivo desata el potencial viral.',
+    bonus: '+30% Inercia Global, +30% Biomasa',
+    req: '1 de cada Rol distinto',
+    short: '+30% DPS, +30% Biomasa'
+  }
+};
+
 function App() {
   const [activeTab, setActiveTab] = useState(null);
   const [selectedCepa, setSelectedCepa] = useState(null);
@@ -31,6 +79,7 @@ function App() {
   const [scrapConfirmData, setScrapConfirmData] = useState(null);
   const [adPlaying, setAdPlaying] = useState(false);
   const [adResult, setAdResult] = useState(null);
+  const [synergyHelpOpen, setSynergyHelpOpen] = useState(false);
   const [, setTick] = useState(0);
 
   // Force re-render every second for timers
@@ -156,6 +205,86 @@ function App() {
         )}
 
         {/* ── Item Reveal Modal ── */}
+        {/* ── Synergy Help Modal ── */}
+        {synergyHelpOpen && (
+          <div className="fullscreen-overlay" onClick={() => setSynergyHelpOpen(false)}>
+            <div className="stats-panel glass" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+              <div className="stats-panel-header">
+                <h3>🧬 Archivo de Sinergias</h3>
+                <button className="sheet-close-btn" onClick={() => setSynergyHelpOpen(false)}>✖</button>
+              </div>
+              <div className="stats-body" style={{ padding: '1rem', overflowY: 'auto' }}>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1.2rem', lineHeight: '1.4' }}>
+                  El despliegue táctico de diferentes cepas activa bonos de resonancia. Combina roles para maximizar tu Inercia Viral.
+                </p>
+                
+                {Object.entries(SYNERGY_DATA).map(([key, data]) => {
+                  const isActive = game.squadSynergies[key];
+                  const contributingHeroes = game.squad.map(id => game.characters.find(c => c.id === id)).filter(c => {
+                    if (key === 'mutacionPerfecta') return true; 
+                    return c.role === data.role;
+                  });
+
+                  let progressText = "";
+                  let statusDetail = null;
+                  if (key === 'mutacionPerfecta') {
+                    const rolesInSquad = Array.from(new Set(game.squad.map(id => game.characters.find(c => c.id === id)?.role).filter(Boolean)));
+                    progressText = `${rolesInSquad.length} / 4 roles`;
+                    if (!isActive) {
+                      const allRoles = ['asesino', 'toxico', 'psionico', 'carnicero'];
+                      const missingRoles = allRoles.filter(r => !rolesInSquad.includes(r));
+                      statusDetail = `Faltan: ${missingRoles.map(r => r.charAt(0).toUpperCase() + r.slice(1)).join(', ')}`;
+                    }
+                  } else {
+                    progressText = `${contributingHeroes.length} / 2`;
+                    if (!isActive && contributingHeroes.length < 2) {
+                      statusDetail = `Falta ${2 - contributingHeroes.length} ${data.role}`;
+                    }
+                  }
+
+                  return (
+                    <div key={key} className={`synergy-help-card ${isActive ? 'active' : ''}`} style={{ 
+                      background: isActive ? 'rgba(6, 182, 212, 0.1)' : 'rgba(0,0,0,0.2)',
+                      border: `1px solid ${isActive ? 'var(--accent-cyan)' : 'rgba(255,255,255,0.1)'}`,
+                      padding: '1rem',
+                      borderRadius: '12px',
+                      marginBottom: '1rem',
+                      position: 'relative'
+                    }}>
+                      {isActive && <div style={{ position: 'absolute', top: 0, right: 0, background: 'var(--accent-cyan)', color: 'black', fontSize: '0.6rem', padding: '2px 8px', fontWeight: 'bold', borderBottomLeftRadius: '8px' }}>ACTIVA</div>}
+                      
+                      <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', marginBottom: '0.5rem' }}>
+                        <span style={{ fontSize: '1.5rem', filter: isActive ? 'drop-shadow(0 0 5px white)' : 'grayscale(1)' }}>{data.icon}</span>
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: '0.95rem', color: isActive ? 'white' : 'var(--text-secondary)' }}>{data.name}</h4>
+                          <span style={{ fontSize: '0.7rem', color: isActive ? 'var(--accent-cyan)' : 'var(--text-secondary)' }}>{data.req} • <strong>{progressText}</strong></span>
+                        </div>
+                      </div>
+                      
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontStyle: 'italic', lineHeight: '1.3' }}>{data.desc}</p>
+                      <div style={{ background: 'rgba(0,0,0,0.3)', padding: '0.6rem', borderRadius: '6px', fontSize: '0.8rem', borderLeft: `3px solid ${isActive ? '#84cc16' : '#555'}` }}>
+                        <strong style={{ color: isActive ? '#84cc16' : 'var(--text-secondary)' }}>BONUS:</strong> {data.bonus}
+                      </div>
+
+                      {statusDetail && !isActive && <div style={{ fontSize: '0.65rem', color: '#ef4444', marginTop: '6px', fontWeight: 'bold' }}>⚠️ {statusDetail}</div>}
+
+                      {contributingHeroes.length > 0 && (
+                        <div style={{ marginTop: '0.8rem', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          {contributingHeroes.map(h => (
+                            <span key={h.id} style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.1)', padding: '3px 8px', borderRadius: '12px', border: `1px solid ${h.color}44` }}>
+                              {h.emoji} {h.name.split(': ')[1]}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
         {revealedItem && (
           <div className="fullscreen-overlay" onClick={() => setRevealedItem(null)}>
             <div className="item-reveal-modal" onClick={e => e.stopPropagation()}>
@@ -704,6 +833,46 @@ function App() {
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', padding: '0.2rem 0' }}>Ningún set ★6 activo.</p>
                   )}
                 </div>
+
+                <div className="stats-section">
+                  <div className="stats-section-title">🧬 Sinergias de Formación</div>
+                  {Object.values(game.squadSynergies).some(v => v) ? (
+                    <>
+                      {game.squadSynergies.sangreYHueso && (
+                        <div className="stat-row" style={{ color: '#f3f4f6' }}>
+                          <span>🪚 Sangre y Hueso</span>
+                          <strong>+15% Daño Click, +10% Inercia</strong>
+                        </div>
+                      )}
+                      {game.squadSynergies.contaminacionCruzada && (
+                        <div className="stat-row" style={{ color: '#84cc16' }}>
+                          <span>🧪 Contaminación Cruzada</span>
+                          <strong>+25% Biomasa</strong>
+                        </div>
+                      )}
+                      {game.squadSynergies.menteColmena && (
+                        <div className="stat-row" style={{ color: '#3b82f6' }}>
+                          <span>⚡ Mente Colmena</span>
+                          <strong>+15% Vel. Ataque</strong>
+                        </div>
+                      )}
+                      {game.squadSynergies.depredadoresApex && (
+                        <div className="stat-row" style={{ color: '#06b6d4' }}>
+                          <span>🔪 Depredadores Apex</span>
+                          <strong>+15% Prob. Crítico</strong>
+                        </div>
+                      )}
+                      {game.squadSynergies.mutacionPerfecta && (
+                        <div className="stat-row" style={{ color: '#9333ea' }}>
+                          <span>🌟 Mutación Perfecta</span>
+                          <strong>+30% Inercia, +30% Biomasa</strong>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', padding: '0.2rem 0' }}>Ninguna sinergia activa.</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1236,6 +1405,24 @@ function App() {
                 <div className="squad-status">
                   Escuadrón Activo: <span>{game.squad.length} / 4</span>
                 </div>
+
+                {/* Panel de Sinergias Activas */}
+                <div className="synergy-panel" style={{ background: 'rgba(0,0,0,0.3)', padding: '0.8rem', borderRadius: '10px', marginBottom: '1rem', border: '1px solid var(--glass-border)', position: 'relative' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                    <h4 style={{ color: 'var(--accent-cyan)', margin: 0, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>🧬 Sinergias de Formación</h4>
+                    <button className="help-icon-btn" onClick={() => setSynergyHelpOpen(true)} title="Ver todas las sinergias">?</button>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    {game.squadSynergies.sangreYHueso && <span className="synergy-badge" title={SYNERGY_DATA.sangreYHueso.short} style={{ borderColor: '#f3f4f6', color: '#f3f4f6' }}>🪚 Sangre y Hueso</span>}
+                    {game.squadSynergies.contaminacionCruzada && <span className="synergy-badge" title={SYNERGY_DATA.contaminacionCruzada.short} style={{ borderColor: '#84cc16', color: '#84cc16' }}>🧪 Contaminación</span>}
+                    {game.squadSynergies.menteColmena && <span className="synergy-badge" title={SYNERGY_DATA.menteColmena.short} style={{ borderColor: '#3b82f6', color: '#3b82f6' }}>⚡ Mente Colmena</span>}
+                    {game.squadSynergies.depredadoresApex && <span className="synergy-badge" title={SYNERGY_DATA.depredadoresApex.short} style={{ borderColor: '#06b6d4', color: '#06b6d4' }}>🔪 Depredadores</span>}
+                    {game.squadSynergies.mutacionPerfecta && <span className="synergy-badge" title={SYNERGY_DATA.mutacionPerfecta.short} style={{ borderColor: '#9333ea', color: '#9333ea', background: 'rgba(147,51,234,0.1)' }}>🌟 Mutación Perfecta</span>}
+                    {!Object.values(game.squadSynergies).some(v => v) && (
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>Combina roles para activar bonus...</span>
+                    )}
+                  </div>
+                </div>
                 <div className="cepa-grid">
                   {game.characters.map(char => {
                     const isDeployed = game.squad.includes(char.id);
@@ -1261,6 +1448,9 @@ function App() {
                             ? <img src={char.img} alt={char.name} className="cepa-card-img" />
                             : <div className="cepa-card-emoji">{char.emoji}</div>}
                           {isDeployed && <div className="deployed-badge">🟢 Activa</div>}
+                          <div className="role-badge" style={{ position: 'absolute', top: '5px', left: '5px', background: 'rgba(0,0,0,0.7)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}>
+                            {char.role === 'asesino' ? '🔪' : char.role === 'toxico' ? '🧪' : char.role === 'psionico' ? '⚡' : '🪚'}
+                          </div>
                         </div>
                         <div className="cepa-card-info">
                           <div className="cepa-card-name">{char.name.split(': ')[1] || char.name}</div>
@@ -1296,7 +1486,12 @@ function App() {
                       {char.img ? <img src={char.img} alt={char.name} /> : <span>{char.emoji}</span>}
                     </div>
                     <div className="cepa-detail-stats">
-                      <h3>{char.name}</h3>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <h3>{char.name}</h3>
+                        <span className="role-tag" style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.7rem', color: 'var(--accent-cyan)', border: '1px solid var(--accent-cyan)' }}>
+                          {char.role === 'asesino' ? '🔪 ASESINO' : char.role === 'toxico' ? '🧪 TÓXICO' : char.role === 'psionico' ? '⚡ PSIÓNICO' : '🪚 CARNICERO'}
+                        </span>
+                      </div>
                       <p>Nivel: <strong key={char.level} className="level-up-flash" style={{ color: 'var(--accent-cyan)' }}>{char.level}</strong></p>
                       <p>Inercia Viral: <strong>{game.formatNumber(game.calcCharDPS(char.baseDPS, char.dpsMult, Math.max(1, char.level)) * (1 + game.getCharItemBonus(char.id, 'dps')))}</strong></p>
                       <p>Ritmo de Ataque: <strong>{char.attackSpeed}s</strong></p>

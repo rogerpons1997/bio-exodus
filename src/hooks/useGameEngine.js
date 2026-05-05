@@ -9,11 +9,11 @@ const calcCharDPS = (baseDPS, dpsMult, level) => baseDPS * Math.pow(dpsMult, lev
 
 // Datos iniciales de los personajes (Cepas Mutantes y Velocidades)
 export const INITIAL_CHARACTERS = [
-  { id: 'c1', name: 'Cepa-01: Cruel Talon', baseCost: 10, costMult: 1.15, baseDPS: 1, dpsMult: 1.1, level: 0, attackSpeed: 0.5, emoji: '🪚', img: '/champions/cruel-talon.png', color: '#06b6d4' },
-  { id: 'c2', name: 'Cepa-02: Vomit-Acid', baseCost: 100, costMult: 1.2, baseDPS: 5, dpsMult: 1.15, level: 0, attackSpeed: 1.0, emoji: '🧪', img: '/champions/vomit-acid.png', color: '#84cc16' },
-  { id: 'c3', name: 'Cepa-03: Neural-Shock', baseCost: 1000, costMult: 1.25, baseDPS: 30, dpsMult: 1.2, level: 0, attackSpeed: 2.0, emoji: '⚡', img: '/champions/neural-shock.png', color: '#3b82f6' },
-  { id: 'c4', name: 'Cepa-04: Bone-Crusher', baseCost: 5000, costMult: 1.3, baseDPS: 100, dpsMult: 1.25, level: 0, attackSpeed: 3.0, emoji: '🦴', img: '/champions/bone-crusher.png', color: '#f3f4f6' },
-  { id: 'c5', name: 'Cepa-05: Spore-Cloud', baseCost: 25000, costMult: 1.35, baseDPS: 400, dpsMult: 1.3, level: 0, attackSpeed: 5.0, emoji: '🍄', img: '/champions/spore-cloud.png', color: '#9333ea' }
+  { id: 'c1', name: 'Cepa-01: Cruel Talon', role: 'asesino', baseCost: 10, costMult: 1.15, baseDPS: 1, dpsMult: 1.1, level: 0, attackSpeed: 0.5, emoji: '🪚', img: '/champions/cruel-talon.png', color: '#06b6d4' },
+  { id: 'c2', name: 'Cepa-02: Vomit-Acid', role: 'toxico', baseCost: 100, costMult: 1.2, baseDPS: 5, dpsMult: 1.15, level: 0, attackSpeed: 1.0, emoji: '🧪', img: '/champions/vomit-acid.png', color: '#84cc16' },
+  { id: 'c3', name: 'Cepa-03: Neural-Shock', role: 'psionico', baseCost: 1000, costMult: 1.25, baseDPS: 30, dpsMult: 1.2, level: 0, attackSpeed: 2.0, emoji: '⚡', img: '/champions/neural-shock.png', color: '#3b82f6' },
+  { id: 'c4', name: 'Cepa-04: Bone-Crusher', role: 'carnicero', baseCost: 5000, costMult: 1.3, baseDPS: 100, dpsMult: 1.25, level: 0, attackSpeed: 3.0, emoji: '🦴', img: '/champions/bone-crusher.png', color: '#f3f4f6' },
+  { id: 'c5', name: 'Cepa-05: Spore-Cloud', role: 'toxico', baseCost: 25000, costMult: 1.35, baseDPS: 400, dpsMult: 1.3, level: 0, attackSpeed: 5.0, emoji: '🍄', img: '/champions/spore-cloud.png', color: '#9333ea' }
 ];
 
 const NORMAL_ENEMIES = [
@@ -119,6 +119,25 @@ export function useGameEngine(onHeroAttackCallback) {
     return sets;
   }, [inventory, characters]);
 
+  // Detectar Sinergias de Escuadrón Activas
+  const squadSynergies = useMemo(() => {
+    const counts = { carnicero: 0, toxico: 0, psionico: 0, asesino: 0 };
+    squad.forEach(charId => {
+      const char = characters.find(c => c.id === charId);
+      if (char && char.role) {
+        counts[char.role] = (counts[char.role] || 0) + 1;
+      }
+    });
+
+    return {
+      sangreYHueso: counts.carnicero >= 2,
+      contaminacionCruzada: counts.toxico >= 2,
+      menteColmena: counts.psionico >= 2,
+      depredadoresApex: counts.asesino >= 2,
+      mutacionPerfecta: counts.carnicero >= 1 && counts.toxico >= 1 && counts.psionico >= 1 && counts.asesino >= 1
+    };
+  }, [squad, characters]);
+
   // Bonus global de oro (Set Bonus: +100% per set)
   const globalGoldBonus = inventory.filter(i => i.stat === 'gold').reduce((acc, i) => acc + i.value, 0);
   const setGoldMult = 1 + (activeSets.gold * 1.0);
@@ -128,18 +147,20 @@ export function useGameEngine(onHeroAttackCallback) {
     const dpsItemMult = 1 + getCharItemBonus(char.id, 'dps');
     const setMult = 1 + (activeSets.dps * 1.0);
     const upgradeMult = 1 + (upgrades.dps * 0.1);
-    return acc + calcCharDPS(char.baseDPS, char.dpsMult, char.level) * dpsItemMult * setMult * upgradeMult;
+    const synDpsMult = 1 + (squadSynergies.sangreYHueso ? 0.10 : 0) + (squadSynergies.mutacionPerfecta ? 0.30 : 0);
+    return acc + calcCharDPS(char.baseDPS, char.dpsMult, char.level) * dpsItemMult * setMult * upgradeMult * synDpsMult;
   }, 0) * prestigeMultiplier;
 
   // Daño por Click: 5% del DPS total como base, escalado por el nivel de 'tap'
-  const tapDamage = (totalDps * 0.05) + (upgrades.tap * prestigeMultiplier * 10);
+  const synTapBonus = squadSynergies.sangreYHueso ? 1.15 : 1.0;
+  const tapDamage = ((totalDps * 0.05) + (upgrades.tap * prestigeMultiplier * 10)) * synTapBonus;
   const tapCritProb = upgrades.tapCrit * 0.02; // +2% por nivel
   const tapCritMult = 5; // Los críticos de click pegan x5
 
   // Referencias para el Game Loop
   // heroTimers guardará el progreso de ataque de cada héroe individual
-  const stateRef = useRef({ enemy, gold, totalDps, level, characters, relics, upgrades, squad, inventory, heroTimers: {}, activeSets, darkMatter, shopItems, shopNextRefresh, shopManualRefreshes, shopAdRefreshes, shopLastReset, shopSlotsUnlocked, bgImage, tutorialCompleted, permanentVIP, dailyAdBoosters });
-  stateRef.current = { enemy, gold, totalDps, level, characters, relics, upgrades, squad, inventory, heroTimers: stateRef.current.heroTimers, activeSets, darkMatter, shopItems, shopNextRefresh, shopManualRefreshes, shopAdRefreshes, shopLastReset, shopSlotsUnlocked, bgImage, tutorialCompleted, permanentVIP, dailyAdBoosters };
+  const stateRef = useRef({ enemy, gold, totalDps, level, characters, relics, upgrades, squad, inventory, heroTimers: {}, activeSets, squadSynergies, darkMatter, shopItems, shopNextRefresh, shopManualRefreshes, shopAdRefreshes, shopLastReset, shopSlotsUnlocked, bgImage, tutorialCompleted, permanentVIP, dailyAdBoosters });
+  stateRef.current = { enemy, gold, totalDps, level, characters, relics, upgrades, squad, inventory, heroTimers: stateRef.current.heroTimers, activeSets, squadSynergies, darkMatter, shopItems, shopNextRefresh, shopManualRefreshes, shopAdRefreshes, shopLastReset, shopSlotsUnlocked, bgImage, tutorialCompleted, permanentVIP, dailyAdBoosters };
 
   // Referencia al callback para usarlo dentro de useEffect sin dependencias
   const onAttackRef = useRef(onHeroAttackCallback);
@@ -334,12 +355,14 @@ export function useGameEngine(onHeroAttackCallback) {
     const setGoldMult = 1 + (activeSets.gold * 1.0);
     const upgradeGoldMult = 1 + (upgrades.gold * 0.1);
     
+    const synGoldMult = 1 + (stateRef.current.squadSynergies.contaminacionCruzada ? 0.25 : 0) + (stateRef.current.squadSynergies.mutacionPerfecta ? 0.30 : 0);
+
     // Aplicar Booster x2
     const now = Date.now();
     const hasGoldBooster = permanentVIP || (boosters.gold.expires > now);
     const boosterMult = hasGoldBooster ? 2 : 1;
     
-    setGold(g => g + (reward * (1 + goldBonus) * setGoldMult * upgradeGoldMult * boosterMult));
+    setGold(g => g + (reward * (1 + goldBonus) * setGoldMult * upgradeGoldMult * synGoldMult * boosterMult));
     
     if (isBoss) {
       // Change background randomly when a boss is defeated
@@ -417,7 +440,8 @@ export function useGameEngine(onHeroAttackCallback) {
           
           const globalSpeedBonus = st.activeSets.speed * 0.5;
           const upgradeSpeedBonus = st.upgrades.speed * 0.05;
-          const effectiveSpeed = char.attackSpeed / (1 + itemSpeedBonus + globalSpeedBonus + upgradeSpeedBonus);
+          const synSpeedBonus = st.squadSynergies.menteColmena ? 0.15 : 0;
+          const effectiveSpeed = char.attackSpeed / (1 + itemSpeedBonus + globalSpeedBonus + upgradeSpeedBonus + synSpeedBonus);
           
           newPercentages[char.id] = Math.min(100, (st.heroTimers[char.id] / effectiveSpeed) * 100);
 
@@ -428,7 +452,8 @@ export function useGameEngine(onHeroAttackCallback) {
 
             const setDpsMult = 1 + (st.activeSets.dps * 1.0);
             const upgradeDpsMult = 1 + (st.upgrades.dps * 0.1);
-            const charDps = calcCharDPS(char.baseDPS, char.dpsMult, char.level) * (1 + st.relics) * (1 + itemDpsBonus) * setDpsMult * upgradeDpsMult;
+            const synDpsMult = 1 + (st.squadSynergies.sangreYHueso ? 0.10 : 0) + (st.squadSynergies.mutacionPerfecta ? 0.30 : 0);
+            const charDps = calcCharDPS(char.baseDPS, char.dpsMult, char.level) * (1 + st.relics) * (1 + itemDpsBonus) * setDpsMult * upgradeDpsMult * synDpsMult;
             
             const critBonus = st.inventory
               .filter(i => i.equippedTo === char.id && (i.stat === 'crit' || i.stat === 'tap'))
@@ -436,7 +461,8 @@ export function useGameEngine(onHeroAttackCallback) {
             
             const globalCritBonus = st.activeSets.crit * 0.2;
             const upgradeCritBonus = st.upgrades.crit * 0.01;
-            const totalCritProb = critBonus + globalCritBonus + upgradeCritBonus;
+            const synCritBonus = st.squadSynergies.depredadoresApex ? 0.15 : 0;
+            const totalCritProb = critBonus + globalCritBonus + upgradeCritBonus + synCritBonus;
 
             let isCrit = false;
             const now = Date.now();
@@ -813,7 +839,7 @@ export function useGameEngine(onHeroAttackCallback) {
   return {
     level, gold, relics, characters, squad, inventory, tapDamage, totalDps, enemy, upgrades,
     upgradeCharacter, toggleSquadMember, handleTap, openBox, openBoxMulti, equipItem, unequipItem, scrapItem, formatNumber, prestige,
-    calcCharCost, calcCharDPS, getCharItemBonus, activeSets, darkMatter, computeFusion, commitFusion, bulkScrapItems,
+    calcCharCost, calcCharDPS, getCharItemBonus, activeSets, squadSynergies, darkMatter, computeFusion, commitFusion, bulkScrapItems,
     shopItems, shopNextRefresh, shopManualRefreshes, shopAdRefreshes, shopSlotsUnlocked, refreshShop, buyShopItem, unlockShopSlot,
     offlineGoldEarned, clearOfflineGold, upgradeGlobal, isLoaded, attackPercentages, tutorialCompleted, setTutorialCompleted,
     boosters, permanentVIP, dailyAdBoosters, bgImage,
