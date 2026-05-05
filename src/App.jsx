@@ -812,25 +812,29 @@ function App() {
                 </div>
 
                 <div className="stats-section">
-                  <div className="stats-section-title">🌌 Sets Activos (Reliquias ★6)</div>
-                  {Object.entries(game.activeSets).some(([_, count]) => count > 0) ? (
-                    Object.entries(game.activeSets).map(([type, count]) => {
-                      if (count === 0) return null;
-                      const bonus = {
-                        dps: { name: 'Poder Absoluto', val: `+${count * 100}% Inercia` },
-                        speed: { name: 'Frenesí Temporal', val: `+${count * 50}% Vel. Ataque` },
-                        gold: { name: 'Asimilación', val: `+${count * 100}% Biomasa` },
-                        crit: { name: 'Aniquilación', val: `+${count * 20}% Prob. Crítico` }
+                  <div className="stats-section-title">🌌 Sets de Reliquias (Progreso)</div>
+                  {Object.entries(game.activeSets).some(([_, data]) => data.maxProgress > 0) ? (
+                    Object.entries(game.activeSets).map(([type, data]) => {
+                      if (data.maxProgress === 0) return null;
+                      const isComplete = data.maxProgress >= 3;
+                      const bonusInfo = {
+                        dps: { name: 'Poder Absoluto', val: `+${data.completed * 100}% Inercia` },
+                        speed: { name: 'Frenesí Temporal', val: `+${data.completed * 50}% Vel. Ataque` },
+                        gold: { name: 'Asimilación', val: `+${data.completed * 100}% Biomasa` },
+                        crit: { name: 'Aniquilación', val: `+${data.completed * 20}% Prob. Crítico` }
                       }[type];
+                      
                       return (
-                        <div key={type} className="stat-row" style={{ color: '#c084fc' }}>
-                          <span>{bonus.name} (x{count})</span>
-                          <strong>{bonus.val}</strong>
+                        <div key={type} className="stat-row" style={{ color: isComplete ? '#c084fc' : 'var(--text-secondary)', opacity: isComplete ? 1 : 0.7 }}>
+                          <span>
+                            {isComplete ? '✨' : '🧬'} {bonusInfo.name} ({data.maxProgress}/3)
+                          </span>
+                          <strong>{isComplete ? bonusInfo.val : 'Incompleto'}</strong>
                         </div>
                       );
                     })
                   ) : (
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', padding: '0.2rem 0' }}>Ningún set ★6 activo.</p>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', padding: '0.2rem 0' }}>Ninguna Reliquia equipada.</p>
                   )}
                 </div>
 
