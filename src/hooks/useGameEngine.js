@@ -108,29 +108,17 @@ export function useGameEngine(onHeroAttackCallback) {
       .reduce((acc, item) => acc + item.value, 0);
   }, [inventory]);
 
-  // Helper: Detectar Sets ★6 Activos y su Progreso
+  // Helper: Detectar Sets ★6 Activos
   const activeSets = useMemo(() => {
-    const sets = { 
-      dps: { completed: 0, maxProgress: 0 }, 
-      speed: { completed: 0, maxProgress: 0 }, 
-      gold: { completed: 0, maxProgress: 0 }, 
-      crit: { completed: 0, maxProgress: 0 } 
-    };
-
+    const sets = { dps: 0, speed: 0, gold: 0, crit: 0 };
     characters.forEach(char => {
       const equipped = inventory.filter(i => i.equippedTo === char.id && i.stars === 6);
       const setCounts = {};
       equipped.forEach(i => {
         if (i.setType) setCounts[i.setType] = (setCounts[i.setType] || 0) + 1;
       });
-
       Object.keys(setCounts).forEach(type => {
-        if (sets[type]) {
-          sets[type].maxProgress = Math.max(sets[type].maxProgress, setCounts[type]);
-          if (setCounts[type] >= 3) {
-            sets[type].completed++;
-          }
-        }
+        if (setCounts[type] >= 3) sets[type]++;
       });
     });
     return sets;
@@ -157,12 +145,12 @@ export function useGameEngine(onHeroAttackCallback) {
 
   // Bonus global de oro (Set Bonus: +100% per set)
   const globalGoldBonus = inventory.filter(i => i.stat === 'gold').reduce((acc, i) => acc + i.value, 0);
-  const setGoldMult = 1 + (activeSets.gold.completed * 1.0);
+  const setGoldMult = 1 + (activeSets.gold * 1.0);
 
   const totalDps = characters.reduce((acc, char) => {
     if (char.level === 0 || !squad.includes(char.id)) return acc;
     const dpsItemMult = 1 + getCharItemBonus(char.id, 'dps');
-    const setMult = 1 + (activeSets.dps.completed * 1.0);
+    const setMult = 1 + (activeSets.dps * 1.0);
     const upgradeMult = 1 + (upgrades.dps * 0.1);
     const synDpsMult = 1 + (squadSynergies.sangreYHueso ? 0.10 : 0) + (squadSynergies.mutacionPerfecta ? 0.30 : 0);
     return acc + calcCharDPS(char.baseDPS, char.dpsMult, char.level) * dpsItemMult * setMult * upgradeMult * synDpsMult;
@@ -469,7 +457,7 @@ export function useGameEngine(onHeroAttackCallback) {
             .filter(i => i.equippedTo === char.id && i.stat === 'attackSpeed')
             .reduce((acc, i) => acc + i.value, 0);
           
-          const globalSpeedBonus = st.activeSets.speed.completed * 0.5;
+          const globalSpeedBonus = st.activeSets.speed * 0.5;
           const upgradeSpeedBonus = st.upgrades.speed * 0.05;
           const synSpeedBonus = st.squadSynergies.menteColmena ? 0.15 : 0;
           const overdriveSpeedBonus = st.overdriveActive ? 0.20 : 0;
@@ -482,7 +470,7 @@ export function useGameEngine(onHeroAttackCallback) {
               .filter(i => i.equippedTo === char.id && i.stat === 'dps')
               .reduce((acc, i) => acc + i.value, 0);
 
-            const setDpsMult = 1 + (st.activeSets.dps.completed * 1.0);
+            const setDpsMult = 1 + (st.activeSets.dps * 1.0);
             const upgradeDpsMult = 1 + (st.upgrades.dps * 0.1);
             const synDpsMult = 1 + (st.squadSynergies.sangreYHueso ? 0.10 : 0) + (st.squadSynergies.mutacionPerfecta ? 0.30 : 0);
             const charDps = calcCharDPS(char.baseDPS, char.dpsMult, char.level) * (1 + st.relics) * (1 + itemDpsBonus) * setDpsMult * upgradeDpsMult * synDpsMult;
@@ -491,7 +479,7 @@ export function useGameEngine(onHeroAttackCallback) {
               .filter(i => i.equippedTo === char.id && (i.stat === 'crit' || i.stat === 'tap'))
               .reduce((acc, i) => acc + i.value, 0);
             
-            const globalCritBonus = st.activeSets.crit.completed * 0.2;
+            const globalCritBonus = st.activeSets.crit * 0.2;
             const upgradeCritBonus = st.upgrades.crit * 0.01;
             const synCritBonus = st.squadSynergies.depredadoresApex ? 0.15 : 0;
             const totalCritProb = critBonus + globalCritBonus + upgradeCritBonus + synCritBonus;
