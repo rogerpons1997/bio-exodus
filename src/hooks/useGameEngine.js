@@ -358,7 +358,7 @@ export function useGameEngine(onHeroAttackCallback) {
     const { reward, isBoss } = stateRef.current.enemy;
     // Bonus global de oro (Set Bonus: +100% per set)
     const goldBonus = inventory.filter(i => i.stat === 'gold').reduce((acc, i) => acc + i.value, 0);
-    const setGoldMult = 1 + (activeSets.gold.completed * 1.0);
+    const setGoldMult = 1 + (activeSets.gold * 1.0);
     const upgradeGoldMult = 1 + (upgrades.gold * 0.1);
     
     const synGoldMult = 1 + (stateRef.current.squadSynergies.contaminacionCruzada ? 0.25 : 0) + (stateRef.current.squadSynergies.mutacionPerfecta ? 0.30 : 0);
