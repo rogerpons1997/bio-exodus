@@ -882,12 +882,12 @@ function App() {
         <div className="header glass">
           <div className="header-top-row">
             <div className="gold-display"><span><img src="/icons/biomasa.png" alt="Biomasa" style={{ width: '42px', height: '42px', verticalAlign: 'middle', filter: 'drop-shadow(0 0 5px rgba(132,204,22,0.8))' }} /></span> {game.formatNumber(game.gold)}</div>
-            <div style={{ display: 'flex', gap: '0.6rem' }}>
-              <button className="stats-icon-btn" onClick={() => setShopOpen(true)} style={{ color: '#f59e0b', borderColor: 'rgba(245,158,11,0.4)', background: 'rgba(245,158,11,0.1)' }} title="Tienda">
-                🛒
+            <div style={{ display: 'flex', gap: '0rem' }}>
+              <button className="stats-icon-btn" onClick={() => setShopOpen(true)} title="Tienda">
+                <img src="/icons/sup1.png" alt="Tienda" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
               </button>
               <button className="stats-icon-btn" onClick={() => setStatsOpen(true)} title="Ver Estadísticas">
-                📊
+                <img src="/icons/sup2.png" alt="Estadísticas" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
               </button>
             </div>
           </div>
@@ -1654,26 +1654,26 @@ function App() {
         {/* ── Bottom Nav Bar ── */}
         <div className="bottom-nav-bar glass">
           <div className={`nav-item ${activeTab === 'heroes' ? 'active' : ''}`} onClick={() => handleTabClick('heroes')}>
-            <div className="nav-icon">🧬</div>
+            <div className="nav-icon"><img src="/icons/inf1.png" alt="Laboratorio" style={{ width: '46px', height: '46px', objectFit: 'contain' }} /></div>
             <div className="nav-text">Laboratorio</div>
           </div>
           <div className={`nav-item ${activeTab === 'boxes' ? 'active' : ''}`} onClick={() => handleTabClick('boxes')}>
-            <div className="nav-icon">📦</div>
+            <div className="nav-icon"><img src="/icons/inf2.png" alt="Cajas" style={{ width: '46px', height: '46px', objectFit: 'contain' }} /></div>
             <div className="nav-text">Cajas</div>
-          </div>
-          <div className={`nav-item ${activeTab === 'inventory' ? 'active' : ''}`} onClick={() => handleTabClick('inventory')}>
-            <div className="nav-icon">🗃️</div>
-            <div className="nav-text">Inventario</div>
-            {game.inventory.filter(i => !i.equippedTo).length > 0 && (
-              <div className="nav-badge">{game.inventory.filter(i => !i.equippedTo).length}</div>
+            {game.shopNextRefresh <= Date.now() && (
+              <div className="nav-badge">!</div>
             )}
           </div>
+          <div className={`nav-item ${activeTab === 'inventory' ? 'active' : ''}`} onClick={() => handleTabClick('inventory')}>
+            <div className="nav-icon"><img src="/icons/inf3.png" alt="Inventario" style={{ width: '46px', height: '46px', objectFit: 'contain' }} /></div>
+            <div className="nav-text">Inventario</div>
+          </div>
           <div className={`nav-item ${activeTab === 'upgrades' ? 'active' : ''}`} onClick={() => handleTabClick('upgrades')}>
-            <div className="nav-icon">⚡</div>
+            <div className="nav-icon"><img src="/icons/inf4.png" alt="Mejoras" style={{ width: '46px', height: '46px', objectFit: 'contain' }} /></div>
             <div className="nav-text">Mejoras</div>
           </div>
           <div className={`nav-item ${activeTab === 'prestige' ? 'active' : ''}`} onClick={() => handleTabClick('prestige')}>
-            <div className="nav-icon">☢️</div>
+            <div className="nav-icon"><img src="/icons/inf5.png" alt="Evolución" style={{ width: '46px', height: '46px', objectFit: 'contain' }} /></div>
             <div className="nav-text">Evolución</div>
           </div>
         </div>
