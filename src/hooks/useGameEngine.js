@@ -41,6 +41,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
   const [level, setLevel] = useState(1);
   const [gold, setGold] = useState(0);
   const [relics, setRelics] = useState(0);
+  const [prestigeCount, setPrestigeCount] = useState(0);
   const [characters, setCharacters] = useState(INITIAL_CHARACTERS);
   const [squad, setSquad] = useState([]);
   const [inventory, setInventory] = useState([]); // [{ id, uid, name, stars, stat, value, emoji, desc, equippedTo, setType }]
@@ -185,6 +186,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
         setLevel(parsed.level || 1);
         setGold(parsed.gold || 0);
         setRelics(parsed.relics || 0);
+        setPrestigeCount(parsed.prestigeCount || 0);
         setSquad(parsed.squad || []);
         const loadedInventory = (parsed.inventory || []).map(item => {
           // 1. Migración de IDs de Reliquias ★6 viejas
@@ -295,6 +297,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
         level: st.level,
         gold: st.gold,
         relics: st.relics,
+        prestigeCount: st.prestigeCount,
         characters: st.characters,
         squad: st.squad,
         inventory: st.inventory,
@@ -333,6 +336,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
       level: st.level,
       gold: st.gold,
       relics: st.relics,
+      prestigeCount: st.prestigeCount,
       characters: st.characters,
       squad: st.squad,
       inventory: st.inventory,
@@ -401,6 +405,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
             setLevel(cloudData.level || 1);
             setGold(cloudData.gold || 0);
             setRelics(cloudData.relics || 0);
+            setPrestigeCount(cloudData.prestigeCount || 0);
             setSquad(cloudData.squad || []);
             setDarkMatter(cloudData.darkMatter || 0);
             setShopNextRefresh(cloudData.shopNextRefresh || 0);
@@ -775,6 +780,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
     if (level <= 10) return;
     const newRelics = Math.floor(level / 10);
     setRelics(r => r + newRelics);
+    setPrestigeCount(p => p + 1);
     setLevel(1);
     setGold(0);
     setCharacters(INITIAL_CHARACTERS);
@@ -1031,7 +1037,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
   }, [isLoaded, shopLastReset]);
 
   return {
-    level, gold, relics, characters, squad, inventory, tapDamage, totalDps, enemy, upgrades,
+    level, gold, relics, prestigeCount, characters, squad, inventory, tapDamage, totalDps, enemy, upgrades,
     upgradeCharacter, toggleSquadMember, handleTap, openBox, openBoxMulti, equipItem, unequipItem, scrapItem, formatNumber, prestige,
     calcCharCost, calcCharDPS, getCharItemBonus, activeSets, squadSynergies, darkMatter, computeFusion, commitFusion, bulkScrapItems,
     shopItems, shopNextRefresh, shopManualRefreshes, shopAdRefreshes, shopSlotsUnlocked, refreshShop, buyShopItem, unlockShopSlot,

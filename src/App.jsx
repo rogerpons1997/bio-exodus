@@ -293,13 +293,13 @@ function App() {
             <h1 style={{ color: 'white', marginTop: '1.5rem', letterSpacing: '4px', textTransform: 'uppercase', textShadow: '0 0 10px rgba(6,182,212,0.8)' }}>Bio-Exodus</h1>
             <p style={{ color: 'var(--text-secondary)', letterSpacing: '1px', fontSize: '0.8rem', marginTop: '0.5rem' }}>SIMULADOR DE MUTACIÓN TÁCTICA</p>
           </div>
-          
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '85%', maxWidth: '300px' }}>
             <button className="upgrade-btn" style={{ padding: '0.9rem', background: '#ffffff', color: '#000000', fontWeight: 'bold', fontSize: '0.95rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', borderRadius: '8px', boxShadow: '0 4px 15px rgba(255,255,255,0.2)' }} onClick={handleLogin}>
               <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ width: '22px' }} />
               Acceder con Google
             </button>
-            
+
             <button className="upgrade-btn" style={{ padding: '0.9rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', fontSize: '0.9rem', borderRadius: '8px' }} onClick={handleGuestLogin}>
               Jugar como Invitado
             </button>
@@ -346,11 +346,11 @@ function App() {
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1.2rem', lineHeight: '1.4' }}>
                   El despliegue táctico de diferentes cepas activa bonos de resonancia. Combina roles para maximizar tu Inercia Viral.
                 </p>
-                
+
                 {Object.entries(SYNERGY_DATA).map(([key, data]) => {
                   const isActive = game.squadSynergies[key];
                   const contributingHeroes = game.squad.map(id => game.characters.find(c => c.id === id)).filter(c => {
-                    if (key === 'mutacionPerfecta') return true; 
+                    if (key === 'mutacionPerfecta') return true;
                     return c.role === data.role;
                   });
 
@@ -372,7 +372,7 @@ function App() {
                   }
 
                   return (
-                    <div key={key} className={`synergy-help-card ${isActive ? 'active' : ''}`} style={{ 
+                    <div key={key} className={`synergy-help-card ${isActive ? 'active' : ''}`} style={{
                       background: isActive ? 'rgba(6, 182, 212, 0.1)' : 'rgba(0,0,0,0.2)',
                       border: `1px solid ${isActive ? 'var(--accent-cyan)' : 'rgba(255,255,255,0.1)'}`,
                       padding: '1rem',
@@ -381,7 +381,7 @@ function App() {
                       position: 'relative'
                     }}>
                       {isActive && <div style={{ position: 'absolute', top: 0, right: 0, background: 'var(--accent-cyan)', color: 'black', fontSize: '0.6rem', padding: '2px 8px', fontWeight: 'bold', borderBottomLeftRadius: '8px' }}>ACTIVA</div>}
-                      
+
                       <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', marginBottom: '0.5rem' }}>
                         <span style={{ fontSize: '1.5rem', filter: isActive ? 'drop-shadow(0 0 5px white)' : 'grayscale(1)' }}>{data.icon}</span>
                         <div>
@@ -389,7 +389,7 @@ function App() {
                           <span style={{ fontSize: '0.7rem', color: isActive ? 'var(--accent-cyan)' : 'var(--text-secondary)' }}>{data.req} • <strong>{progressText}</strong></span>
                         </div>
                       </div>
-                      
+
                       <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontStyle: 'italic', lineHeight: '1.3' }}>{data.desc}</p>
                       <div style={{ background: 'rgba(0,0,0,0.3)', padding: '0.6rem', borderRadius: '6px', fontSize: '0.8rem', borderLeft: `3px solid ${isActive ? '#84cc16' : '#555'}` }}>
                         <strong style={{ color: isActive ? '#84cc16' : 'var(--text-secondary)' }}>BONUS:</strong> {data.bonus}
@@ -865,18 +865,18 @@ function App() {
               <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.95rem' }}>
                 La cuenta de Google seleccionada ya tiene una partida guardada en la nube. ¿Qué deseas hacer?
               </p>
-              
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <button className="upgrade-btn" style={{ padding: '1rem', background: 'rgba(59,130,246,0.1)', border: '1px solid #3b82f6', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }} onClick={() => handleResolveConflict('load')}>
                   <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>☁️ Cargar Partida Online</div>
                   <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', fontWeight: 'normal' }}>(Descarga la partida de Google. El progreso actual de invitado se perderá)</div>
                 </button>
-                
+
                 <button className="upgrade-btn" style={{ padding: '1rem', background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }} onClick={() => handleResolveConflict('overwrite')}>
                   <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#ef4444' }}>💾 Sobreescribir Nube</div>
                   <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', fontWeight: 'normal' }}>(Mantiene el progreso actual y borra la partida vieja de la cuenta de Google)</div>
                 </button>
-                
+
                 <button className="upgrade-btn" style={{ marginTop: '0.5rem', padding: '0.6rem', background: 'transparent', border: 'none', color: 'var(--text-secondary)' }} onClick={() => setLinkConflictModal(false)}>
                   Cancelar
                 </button>
@@ -1129,46 +1129,34 @@ function App() {
           </div>
         )}
 
-        {/* ── Header ── */}
-        <div className="header glass">
-          <div className="header-top-row">
-            <div className="gold-display"><span><img src="/icons/biomasa.png" alt="Biomasa" style={{ width: '42px', height: '42px', verticalAlign: 'middle', filter: 'drop-shadow(0 0 5px rgba(132,204,22,0.8))' }} /></span> {game.formatNumber(game.gold)}</div>
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <button className="stats-icon-btn" onClick={() => setShopOpen(true)} title="Tienda">
-                <img src="/icons/sup1.png" alt="Tienda" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-              </button>
-              <button className="stats-icon-btn" onClick={() => setStatsOpen(true)} title="Ver Estadísticas">
-                <img src="/icons/sup2.png" alt="Estadísticas" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-              </button>
-              <button className="stats-icon-btn" onClick={() => setAccountOpen(true)} title="Cuenta">
-                <img src="/icons/sup3.png" alt="Cuenta" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-              </button>
-            </div>
-          </div>
-          <div className="level-info" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <span>Sector {game.level}</span>
-            <span style={{ fontSize: '1.4rem', color: 'var(--accent-cyan)', marginTop: '5px', textShadow: '0 0 5px var(--accent-cyan)' }}>
-              {game.enemy.emoji} {game.enemy.name}
-            </span>
-          </div>
-          <div className="hp-bar-container" style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            <div className="hp-bar-fill" style={{ width: `${hpPercent}%`, position: 'absolute', left: 0, top: 0, height: '100%' }}></div>
-            <span style={{ position: 'relative', zIndex: 1, fontSize: '0.85rem', fontWeight: 'bold', textShadow: '0px 0px 4px black', lineHeight: '24px' }}>
-              {game.formatNumber(game.enemy.hp)} / {game.formatNumber(game.enemy.maxHp)}
-            </span>
+        {/* ── Bio-Punk HUD (Image Based) ── */}
+        <div className="biopunk-hud-img">
+          {/* Module A */}
+          <div className="hud-img-economy">
+            {game.formatNumber(game.gold)}
           </div>
 
-          {/* Overdrive Bar */}
-          <div className={`overdrive-bar-container ${game.overdriveActive ? 'active' : ''} ${game.overdriveCooldown > 0 ? 'cooldown' : ''}`}>
-            <div className="overdrive-bar-fill" style={{ width: `${game.overdriveProgress}%` }}>
-              {game.overdriveActive && <div className="overdrive-flame-fx" />}
-            </div>
-            <div className="overdrive-label">
-              {game.overdriveActive ? '🔥 OVERDRIVE 🔥' : 
-               game.overdriveCooldown > 0 ? `ENFRIANDO... (${Math.ceil(game.overdriveCooldown)}s)` : 
-               'ADRENALINA'}
+          {/* Module B */}
+          <div className="hud-img-stage">
+            <div className="hud-img-sector">Sector {game.level}</div>
+            <div className="hud-img-enemy">EVOLUCIÓN {game.prestigeCount}</div>
+          </div>
+
+          {/* Module C */}
+          <div className="hud-img-hp-container">
+            <div className="hud-img-hp-fill" style={{ width: `${hpPercent}%` }}></div>
+            <div className="hud-img-hp-text">{game.formatNumber(game.enemy.hp)} / {game.formatNumber(game.enemy.maxHp)}</div>
+          </div>
+          <div className={`hud-img-adr-container ${game.overdriveActive ? 'active' : ''}`}>
+            <div className="hud-img-adr-fill" style={{ width: `${game.overdriveProgress}%` }}>
+              {game.overdriveActive && <div style={{ position: 'absolute', top: 0, right: 0, width: '100%', height: '100%', background: 'rgba(255,255,255,0.3)', animation: 'pulse 0.2s infinite' }} />}
             </div>
           </div>
+
+          {/* Module D (Invisible Overlay Buttons) */}
+          <button className="hud-img-btn hud-img-btn-1" onClick={() => setShopOpen(true)} title="Tienda"></button>
+          <button className="hud-img-btn hud-img-btn-2" onClick={() => setStatsOpen(true)} title="Estadísticas"></button>
+          <button className="hud-img-btn hud-img-btn-3" onClick={() => setAccountOpen(true)} title="Cuenta"></button>
         </div>
 
         {/* ── Action Area ── */}
