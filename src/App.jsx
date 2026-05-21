@@ -1166,7 +1166,7 @@ function App() {
                 </>
               )}
             </div>
-            
+
             <div className={`hud-sub-booster-1 ${(game.permanentVIP || game.boosters.damage.expires > Date.now()) ? 'active' : 'inactive'}`}>
               <div className="booster-fx-overlay"></div>
             </div>
@@ -1901,26 +1901,26 @@ function App() {
         <div className="bottom-nav-bar glass">
           <div className={`nav-item ${activeTab === 'heroes' ? 'active' : ''}`} onClick={() => handleTabClick('heroes')}>
             <div className="nav-icon"><img src="/icons/inf1.png" alt="Laboratorio" style={{ width: '46px', height: '46px', objectFit: 'contain' }} /></div>
-            <div className="nav-text">Laboratorio</div>
+            <div className="nav-text">LAB</div>
           </div>
           <div className={`nav-item ${activeTab === 'boxes' ? 'active' : ''}`} onClick={() => handleTabClick('boxes')}>
             <div className="nav-icon"><img src="/icons/inf2.png" alt="Cajas" style={{ width: '46px', height: '46px', objectFit: 'contain' }} /></div>
-            <div className="nav-text">Cajas</div>
+            <div className="nav-text">MERCADO</div>
             {game.shopNextRefresh <= Date.now() && (
               <div className="nav-badge">!</div>
             )}
           </div>
           <div className={`nav-item ${activeTab === 'inventory' ? 'active' : ''}`} onClick={() => handleTabClick('inventory')}>
             <div className="nav-icon"><img src="/icons/inf3.png" alt="Inventario" style={{ width: '46px', height: '46px', objectFit: 'contain' }} /></div>
-            <div className="nav-text">Inventario</div>
+            <div className="nav-text">EQUIPO</div>
           </div>
           <div className={`nav-item ${activeTab === 'upgrades' ? 'active' : ''}`} onClick={() => handleTabClick('upgrades')}>
             <div className="nav-icon"><img src="/icons/inf4.png" alt="Mejoras" style={{ width: '46px', height: '46px', objectFit: 'contain' }} /></div>
-            <div className="nav-text">Mejoras</div>
+            <div className="nav-text">MEJORAS</div>
           </div>
           <div className={`nav-item ${activeTab === 'prestige' ? 'active' : ''}`} onClick={() => handleTabClick('prestige')}>
             <div className="nav-icon"><img src="/icons/inf5.png" alt="Evolución" style={{ width: '46px', height: '46px', objectFit: 'contain' }} /></div>
-            <div className="nav-text">Evolución</div>
+            <div className="nav-text">ADN</div>
           </div>
         </div>
         {/* ── Shop Modal ── */}
