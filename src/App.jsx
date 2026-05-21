@@ -1153,6 +1153,29 @@ function App() {
             </div>
           </div>
 
+          {/* Module E: Event Info (Boss & Boosters in Sub-HUD) */}
+          <div className="hud-img-event-module" style={{ display: (game.enemy.isBoss || game.permanentVIP || game.boosters.damage.expires > Date.now() || game.boosters.gold.expires > Date.now()) ? 'block' : 'none' }}>
+            <div className="hud-sub-boss-slot">
+              {game.enemy.isBoss && (
+                <>
+                  <span className="hud-sub-boss-title">BOSS</span>
+                  <span className="hud-sub-boss-subtitle">WARNING</span>
+                  <span className="hud-sub-boss-timer">
+                    00<span className="timer-colon">:</span>{Math.ceil(game.enemy.timeRemaining).toString().padStart(2, '0')}
+                  </span>
+                </>
+              )}
+            </div>
+            
+            <div className={`hud-sub-booster-1 ${(game.permanentVIP || game.boosters.damage.expires > Date.now()) ? 'active' : 'inactive'}`}>
+              <div className="booster-fx-overlay"></div>
+            </div>
+
+            <div className={`hud-sub-booster-2 ${(game.permanentVIP || game.boosters.gold.expires > Date.now()) ? 'active' : 'inactive'}`}>
+              <div className="booster-fx-overlay"></div>
+            </div>
+          </div>
+
           {/* Module D (Invisible Overlay Buttons) */}
           <button className="hud-img-btn hud-img-btn-1" onClick={() => setShopOpen(true)} title="Tienda"></button>
           <button className="hud-img-btn hud-img-btn-2" onClick={() => setStatsOpen(true)} title="Estadísticas"></button>
@@ -1162,16 +1185,6 @@ function App() {
         {/* ── Action Area ── */}
         <div className="action-area" onClick={onZoneTap} style={{ '--bg-image': `url('${game.bgImage}')` }}>
           {game.overdriveActive && <div className="overdrive-screen-fx" />}
-          {game.enemy.isBoss && (
-            <>
-              <div className="boss-timer-badge" style={{ top: '1rem', left: '1rem', right: 'auto', background: 'rgba(239,68,68,0.15)', borderColor: 'rgba(239,68,68,0.4)', color: 'var(--accent-red)' }}>
-                ⚠️ JEFE
-              </div>
-              <div className="boss-timer-badge">
-                ⏳ {Math.ceil(game.enemy.timeRemaining)}s
-              </div>
-            </>
-          )}
           <div
             id="main-enemy"
             key={game.level}
@@ -1190,16 +1203,7 @@ function App() {
             }
           </div>
 
-          {/* Indicadores de Boosters en Batalla */}
-          <div className="battle-boosters">
-            {(game.permanentVIP || game.boosters.damage.expires > Date.now()) && (
-              <div className="battle-booster-tag">⚔️ x2</div>
-            )}
-            {(game.permanentVIP || game.boosters.gold.expires > Date.now()) && (
-              <div className="battle-booster-tag gold">💰 x2</div>
-            )}
-          </div>
-
+          {/* Boosters moved to HUD */}
           {game.squad.map((charId, index) => {
             const char = game.characters.find(c => c.id === charId);
             if (!char) return null;
