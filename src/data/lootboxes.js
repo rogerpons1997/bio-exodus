@@ -107,8 +107,8 @@ export const BOXES = [
 ];
 
 // Nombres de rareza para mostrar en UI
-export const RARITY_NAMES = ['Común', 'Poco Común', 'Raro', 'Épico', 'Legendario'];
-export const RARITY_COLORS = ['#94a3b8', '#4ade80', '#60a5fa', '#c084fc', '#fbbf24'];
+export const RARITY_NAMES = ['Común', 'Poco Común', 'Raro', 'Épico', 'Legendario', 'Reliquia'];
+export const RARITY_COLORS = ['#94a3b8', '#4ade80', '#60a5fa', '#c084fc', '#fbbf24', '#ef4444'];
 
 // ============================================================
 // Función de apertura de caja (lógica pura, sin estado React)

@@ -281,7 +281,7 @@ function App() {
     return items;
   };
 
-  const starStr = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
+  const starStr = (n) => '★'.repeat(n) + '☆'.repeat(Math.max(0, 5 - n));
 
   return (
     <>
