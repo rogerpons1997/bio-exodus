@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { BOXES, rollBox, ITEMS } from '../data/lootboxes';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 // Fórmulas matemáticas basadas en el GDD
 const calcEnemyMaxHp = (level) => 10 * Math.pow(1.15, level);
@@ -35,7 +37,7 @@ const BATTLE_BGS = ['/bg-battle.jpg', '/bg-battle2.jpg', '/bg-battle3.jpg', '/bg
 
 const SAVE_KEY = 'idle_clicker_save';
 
-export function useGameEngine(onHeroAttackCallback) {
+export function useGameEngine(user, onHeroAttackCallback) {
   const [level, setLevel] = useState(1);
   const [gold, setGold] = useState(0);
   const [relics, setRelics] = useState(0);
@@ -97,6 +99,8 @@ export function useGameEngine(onHeroAttackCallback) {
   const [overdriveProgress, setOverdriveProgress] = useState(0);
   const [overdriveActive, setOverdriveActive] = useState(false);
   const [overdriveCooldown, setOverdriveCooldown] = useState(0); // Tiempo restante en segundos
+
+  const [cloudStatus, setCloudStatus] = useState(null); // Para mostrar toasts de éxito o error
 
   // Valores Computados
   const prestigeMultiplier = 1 + (relics * 1.0);
@@ -274,6 +278,7 @@ export function useGameEngine(onHeroAttackCallback) {
     } catch (e) {
       console.error("Error loading save", e);
     }
+    sessionStorage.removeItem('isLoggingOut'); // Asegurarnos de limpiar la bandera al cargar el juego por primera vez en la sesión
     setIsLoaded(true);
   }, []);
 
@@ -282,8 +287,11 @@ export function useGameEngine(onHeroAttackCallback) {
     if (!isLoaded) return;
     
     const performSave = () => {
+      if (sessionStorage.getItem('isLoggingOut') === 'true') return; // Prevenir guardado onbeforeunload durante el logout
+      
       const st = stateRef.current;
       const saveData = {
+        uid: user?.uid || null,
         level: st.level,
         gold: st.gold,
         relics: st.relics,
@@ -314,7 +322,147 @@ export function useGameEngine(onHeroAttackCallback) {
       clearInterval(interval);
       window.removeEventListener('beforeunload', performSave);
     };
-  }, [isLoaded]);
+  }, [isLoaded, user]);
+
+  // --- GUARDADO EN LA NUBE (FIRESTORE) ---
+  const saveToCloud = useCallback(async () => {
+    if (!user || !user.uid) return;
+    const st = stateRef.current;
+    const saveData = {
+      uid: user.uid,
+      level: st.level,
+      gold: st.gold,
+      relics: st.relics,
+      characters: st.characters,
+      squad: st.squad,
+      inventory: st.inventory,
+      upgrades: st.upgrades,
+      enemy: st.enemy,
+      darkMatter: st.darkMatter,
+      shopItems: st.shopItems,
+      shopNextRefresh: st.shopNextRefresh,
+      shopManualRefreshes: st.shopManualRefreshes,
+      shopAdRefreshes: st.shopAdRefreshes,
+      shopLastReset: st.shopLastReset,
+      shopSlotsUnlocked: st.shopSlotsUnlocked,
+      permanentVIP: st.permanentVIP,
+      tutorialCompleted: st.tutorialCompleted,
+      dailyAdBoosters: st.dailyAdBoosters,
+      lastSaveTime: Date.now()
+    };
+    try {
+      await setDoc(doc(db, 'saves', user.uid), saveData);
+      console.log('✅ Partida guardada en Firebase Firestore');
+      setCloudStatus({ msg: 'Nube sincronizada', type: 'success', id: Date.now() });
+    } catch (e) {
+      console.error('❌ Error guardando en Firebase', e);
+      setCloudStatus({ msg: 'Error al guardar en nube (¿Permisos?)', type: 'error', id: Date.now() });
+    }
+  }, [user]);
+
+  // Autoguardado en la nube cada 60 segundos
+  useEffect(() => {
+    if (!user || !user.uid || !isLoaded) return;
+    const interval = setInterval(saveToCloud, 60000);
+    return () => clearInterval(interval);
+  }, [user, isLoaded, saveToCloud]);
+
+  // Cargar de la nube al iniciar sesión (o cambiar de usuario)
+  useEffect(() => {
+    if (!user || !user.uid) return;
+    const loadFromCloud = async () => {
+      try {
+        const docRef = doc(db, 'saves', user.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const cloudData = docSnap.data();
+          const localStr = localStorage.getItem(SAVE_KEY);
+          let localData = null;
+          if (localStr) {
+            try { localData = JSON.parse(localStr); } catch (e) {}
+          }
+          
+          if (sessionStorage.getItem('forceCloudOverwrite') === 'true') {
+            sessionStorage.removeItem('forceCloudOverwrite');
+            console.log("☁️ Forzando sobreescritura de nube con progreso local tras resolución de conflicto...");
+            saveToCloud();
+            return; // Saltamos la descarga
+          }
+
+          // Si la partida de la nube es más reciente, o si el usuario local no coincide con la cuenta (ej: acaba de iniciar sesión)
+          const isDifferentUser = localData && localData.uid !== user.uid;
+          const isCloudNewer = cloudData.lastSaveTime && localData.lastSaveTime && cloudData.lastSaveTime > localData.lastSaveTime;
+          
+          if (!localData || isDifferentUser || isCloudNewer) {
+            console.log('☁️ Aplicando partida correcta de la nube en caliente...');
+            localStorage.setItem(SAVE_KEY, JSON.stringify(cloudData));
+            
+            // Actualización directa del estado
+            setLevel(cloudData.level || 1);
+            setGold(cloudData.gold || 0);
+            setRelics(cloudData.relics || 0);
+            setSquad(cloudData.squad || []);
+            setDarkMatter(cloudData.darkMatter || 0);
+            setShopNextRefresh(cloudData.shopNextRefresh || 0);
+            setShopManualRefreshes(cloudData.shopManualRefreshes || 0);
+            setShopAdRefreshes(cloudData.shopAdRefreshes || 0);
+            setShopLastReset(cloudData.shopLastReset || 0);
+            setShopSlotsUnlocked(cloudData.shopSlotsUnlocked || 3);
+            setPermanentVIP(!!cloudData.permanentVIP);
+            setTutorialCompleted(!!cloudData.tutorialCompleted);
+            if (cloudData.bgImage) setBgImage(cloudData.bgImage);
+            if (cloudData.dailyAdBoosters) setDailyAdBoosters(cloudData.dailyAdBoosters);
+            
+            if (cloudData.upgrades) setUpgrades(cloudData.upgrades);
+            else if (cloudData.tapDamageLevel) setUpgrades(prev => ({ ...prev, tap: cloudData.tapDamageLevel }));
+            
+            if (cloudData.characters) {
+              setCharacters(INITIAL_CHARACTERS.map(bc => {
+                const sc = cloudData.characters.find(c => c.id === bc.id);
+                return sc ? { ...bc, level: sc.level } : bc;
+              }));
+            }
+            if (cloudData.inventory) {
+               const loadedInv = cloudData.inventory.map(item => {
+                 let currentId = item.id;
+                 const relicMap = { 'i21': 'i21b', 'i22': 'i22a', 'i23': 'i23b', 'i24': 'i24a' };
+                 if (relicMap[currentId]) currentId = relicMap[currentId];
+                 const baseItem = ITEMS.find(it => it.id === currentId);
+                 if (!baseItem) return item;
+                 return { ...item, ...baseItem, uid: item.uid, equippedTo: item.equippedTo };
+               });
+               setInventory(loadedInv);
+            }
+            if (cloudData.shopItems) {
+               setShopItems(cloudData.shopItems.map(si => {
+                 const base = ITEMS.find(it => it.id === si.itemData.id);
+                 return base ? { ...si, itemData: { ...si.itemData, ...base } } : si;
+               }));
+            }
+            if (cloudData.enemy) {
+               if (cloudData.enemy.hp === null || isNaN(cloudData.enemy.hp) || cloudData.enemy.hp <= 0) {
+                 setTimeout(() => spawnEnemy(cloudData.level || 1), 0);
+               } else {
+                 setEnemy(cloudData.enemy);
+               }
+            }
+            setCloudStatus({ msg: 'Partida descargada y aplicada ✅', type: 'success', id: Date.now() });
+          } else {
+            setCloudStatus({ msg: 'Nube sincronizada', type: 'success', id: Date.now() });
+          }
+        } else {
+          // Si no existe la partida en la nube (nuevo usuario o primera vez guardando en la nube)
+          // Forzamos un guardado inmediato con los datos locales
+          console.log('☁️ No existe partida en la nube. Creando registro...');
+          saveToCloud();
+        }
+      } catch (e) {
+        console.error("Error al cargar partida de la nube:", e);
+        setCloudStatus({ msg: 'Error de lectura en nube (¿Permisos?)', type: 'error', id: Date.now() });
+      }
+    };
+    loadFromCloud();
+  }, [user]);
 
   const spawnEnemy = useCallback((newLevel) => {
     const isBoss = newLevel % 5 === 0;
@@ -381,7 +529,12 @@ export function useGameEngine(onHeroAttackCallback) {
     const nextLevel = level + 1;
     setLevel(nextLevel);
     spawnEnemy(nextLevel);
-  }, [level, spawnEnemy, inventory, activeSets, permanentVIP, boosters.gold.expires]);
+    
+    // Si se derrotó a un boss, forzar guardado en nube
+    if (isBoss) {
+      setTimeout(saveToCloud, 1000);
+    }
+  }, [level, spawnEnemy, inventory, activeSets, permanentVIP, boosters.gold.expires, saveToCloud]);
 
   const onBossFailed = useCallback(() => {
     const prevLevel = level - 1 > 0 ? level - 1 : 1;
@@ -629,7 +782,9 @@ export function useGameEngine(onHeroAttackCallback) {
     setInventory([]);
     setUpgrades({ tap: 1, tapCrit: 0, gold: 0, speed: 0, crit: 0, dps: 0 });
     spawnEnemy(1);
-    // Ya no hacemos localStorage.removeItem, el auto-save se encargará de guardar el nuevo estado limpio en el siguiente tick.
+    
+    // Forzar guardado en la nube al hacer prestigio
+    setTimeout(saveToCloud, 1000);
   };
 
   const clearOfflineGold = () => setOfflineGoldEarned(0);
@@ -900,6 +1055,7 @@ export function useGameEngine(onHeroAttackCallback) {
     addResources: (goldVal, dmVal) => {
       if (goldVal) setGold(g => g + goldVal);
       if (dmVal) setDarkMatter(d => d + dmVal);
-    }
+    },
+    cloudStatus, saveToCloud
   };
 }

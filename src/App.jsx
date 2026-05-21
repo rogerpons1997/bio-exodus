@@ -3,6 +3,9 @@ import './index.css';
 import { useGameEngine } from './hooks/useGameEngine';
 import { BOXES, ITEMS, RARITY_NAMES, RARITY_COLORS } from './data/lootboxes';
 import TutorialOverlay from './components/TutorialOverlay';
+import { signInWithPopup, signOut, onAuthStateChanged, signInAnonymously, linkWithPopup, deleteUser } from 'firebase/auth';
+import { doc, deleteDoc } from 'firebase/firestore';
+import { auth, provider, db } from './firebase';
 
 const SYNERGY_DATA = {
   sangreYHueso: {
@@ -68,6 +71,10 @@ function App() {
   const [dpsTexts, setDpsTexts] = useState([]);
   const [statsOpen, setStatsOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [systemMessage, setSystemMessage] = useState(null);
+  const [confirmModal, setConfirmModal] = useState(null);
+  const [linkConflictModal, setLinkConflictModal] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [multiRevealItems, setMultiRevealItems] = useState(null);
   const [heroAnimations, setHeroAnimations] = useState({});
@@ -81,6 +88,106 @@ function App() {
   const [adResult, setAdResult] = useState(null);
   const [synergyHelpOpen, setSynergyHelpOpen] = useState(false);
   const [, setTick] = useState(0);
+
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [guestMode, setGuestMode] = useState(false);
+
+  React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogin = async () => {
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Error al iniciar sesión:", error);
+    }
+  };
+
+  const handleGuestLogin = async () => {
+    try {
+      await signInAnonymously(auth);
+    } catch (error) {
+      console.error("Error al entrar como invitado:", error);
+      // Fallback por si no han activado Anónimo en Firebase aún
+      setGuestMode(true);
+    }
+  };
+
+  const handleLinkAccount = async () => {
+    try {
+      await linkWithPopup(auth.currentUser, provider);
+      game.saveToCloud();
+      setAccountOpen(false);
+      setSystemMessage({ title: '✅ Éxito', text: 'Cuenta vinculada correctamente.' });
+    } catch (error) {
+      console.error("Error al vincular cuenta:", error);
+      if (error.code === 'auth/credential-already-in-use') {
+        setAccountOpen(false);
+        setLinkConflictModal(true);
+      } else {
+        setSystemMessage({ title: '❌ Error', text: 'Error al vincular cuenta. Inténtalo de nuevo.' });
+      }
+    }
+  };
+
+  const handleResolveConflict = async (action) => {
+    setLinkConflictModal(false);
+    if (action === 'load') {
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (e) {
+        setSystemMessage({ title: '❌ Error', text: 'No se pudo iniciar sesión.' });
+      }
+    } else if (action === 'overwrite') {
+      try {
+        sessionStorage.setItem('forceCloudOverwrite', 'true');
+        await signInWithPopup(auth, provider);
+      } catch (e) {
+        setSystemMessage({ title: '❌ Error', text: 'No se pudo iniciar sesión.' });
+      }
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      sessionStorage.setItem('isLoggingOut', 'true');
+      await signOut(auth);
+      setGuestMode(false);
+      setAccountOpen(false);
+      localStorage.removeItem('idle_clicker_save');
+      window.location.reload();
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+      sessionStorage.removeItem('isLoggingOut');
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    setConfirmModal({
+      title: '⚠️ Borrar Cuenta',
+      text: '¿Estás seguro de que quieres borrar tu cuenta? Todo tu progreso se perderá para siempre.',
+      onConfirm: async () => {
+        try {
+          sessionStorage.setItem('isLoggingOut', 'true'); // Bloquear el auto-guardado
+          const uid = auth.currentUser.uid;
+          await deleteDoc(doc(db, 'saves', uid)); // Borrar de la nube primero
+          await deleteUser(auth.currentUser); // Borrar auth
+          localStorage.removeItem('idle_clicker_save'); // Borrar local
+          window.location.reload();
+        } catch (error) {
+          console.error("Error al borrar cuenta:", error);
+          sessionStorage.removeItem('isLoggingOut'); // Si falla, lo quitamos
+          setSystemMessage({ title: '🔒 Error de Autenticación', text: 'Por seguridad, debes haber iniciado sesión recientemente para borrar tu cuenta. Por favor, cierra sesión, vuelve a entrar e inténtalo de nuevo.' });
+        }
+      }
+    });
+  };
 
   // Force re-render every second for timers
   React.useEffect(() => {
@@ -106,7 +213,7 @@ function App() {
     }
   }, []);
 
-  const game = useGameEngine(handleHeroAttack);
+  const game = useGameEngine(user, handleHeroAttack);
   squadRef.current = game.squad;
 
   React.useEffect(() => {
@@ -178,6 +285,28 @@ function App() {
 
   return (
     <>
+      {/* ── PANTALLA DE ACCESO ── */}
+      {!authLoading && !user && !guestMode && (
+        <div className="fullscreen-overlay" style={{ background: '#0a0a0a', zIndex: 99999, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+          <div style={{ marginBottom: '3rem', textAlign: 'center' }}>
+            <img src="/icon.png" alt="Bio-Exodus" style={{ width: '150px', filter: 'drop-shadow(0 0 30px var(--accent-cyan))', animation: 'pulse 2s infinite alternate' }} />
+            <h1 style={{ color: 'white', marginTop: '1.5rem', letterSpacing: '4px', textTransform: 'uppercase', textShadow: '0 0 10px rgba(6,182,212,0.8)' }}>Bio-Exodus</h1>
+            <p style={{ color: 'var(--text-secondary)', letterSpacing: '1px', fontSize: '0.8rem', marginTop: '0.5rem' }}>SIMULADOR DE MUTACIÓN TÁCTICA</p>
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '85%', maxWidth: '300px' }}>
+            <button className="upgrade-btn" style={{ padding: '0.9rem', background: '#ffffff', color: '#000000', fontWeight: 'bold', fontSize: '0.95rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', borderRadius: '8px', boxShadow: '0 4px 15px rgba(255,255,255,0.2)' }} onClick={handleLogin}>
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ width: '22px' }} />
+              Acceder con Google
+            </button>
+            
+            <button className="upgrade-btn" style={{ padding: '0.9rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', fontSize: '0.9rem', borderRadius: '8px' }} onClick={handleGuestLogin}>
+              Jugar como Invitado
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── SPLASH SCREEN ── */}
       <div className={`splash-screen ${!showSplash ? 'hidden' : ''}`}>
         <div className="splash-logo-container">
@@ -705,6 +834,128 @@ function App() {
           </div>
         )}
 
+        {/* ── GESTIÓN DE CUENTA ── */}
+        {systemMessage && (
+          <div className="fullscreen-overlay" style={{ zIndex: 999999 }} onClick={() => setSystemMessage(null)}>
+            <div className="stats-panel glass" style={{ maxWidth: '400px', height: 'auto', padding: '2rem', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+              <h3 style={{ marginTop: 0 }}>{systemMessage.title}</h3>
+              <p style={{ whiteSpace: 'pre-wrap', color: 'var(--text-secondary)' }}>{systemMessage.text}</p>
+              <button className="upgrade-btn" style={{ marginTop: '1.5rem', padding: '0.8rem', width: '100%' }} onClick={() => setSystemMessage(null)}>Aceptar</button>
+            </div>
+          </div>
+        )}
+
+        {confirmModal && (
+          <div className="fullscreen-overlay" style={{ zIndex: 999999 }} onClick={() => setConfirmModal(null)}>
+            <div className="stats-panel glass" style={{ maxWidth: '400px', height: 'auto', padding: '2rem', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+              <h3 style={{ marginTop: 0, color: '#ef4444' }}>{confirmModal.title}</h3>
+              <p style={{ whiteSpace: 'pre-wrap', color: 'var(--text-secondary)' }}>{confirmModal.text}</p>
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                <button className="upgrade-btn" style={{ flex: 1, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)' }} onClick={() => setConfirmModal(null)}>Cancelar</button>
+                <button className="upgrade-btn" style={{ flex: 1, background: 'rgba(239,68,68,0.2)', border: '1px solid #ef4444', color: '#ef4444' }} onClick={() => { confirmModal.onConfirm(); setConfirmModal(null); }}>Confirmar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {linkConflictModal && (
+          <div className="fullscreen-overlay" style={{ zIndex: 999999 }} onClick={() => setLinkConflictModal(false)}>
+            <div className="stats-panel glass" style={{ maxWidth: '500px', height: 'auto', padding: '2rem', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+              <h3 style={{ marginTop: 0, color: '#fbbf24' }}>⚠️ Conflicto de Partida</h3>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.95rem' }}>
+                La cuenta de Google seleccionada ya tiene una partida guardada en la nube. ¿Qué deseas hacer?
+              </p>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <button className="upgrade-btn" style={{ padding: '1rem', background: 'rgba(59,130,246,0.1)', border: '1px solid #3b82f6', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }} onClick={() => handleResolveConflict('load')}>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>☁️ Cargar Partida Online</div>
+                  <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', fontWeight: 'normal' }}>(Descarga la partida de Google. El progreso actual de invitado se perderá)</div>
+                </button>
+                
+                <button className="upgrade-btn" style={{ padding: '1rem', background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }} onClick={() => handleResolveConflict('overwrite')}>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#ef4444' }}>💾 Sobreescribir Nube</div>
+                  <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)', fontWeight: 'normal' }}>(Mantiene el progreso actual y borra la partida vieja de la cuenta de Google)</div>
+                </button>
+                
+                <button className="upgrade-btn" style={{ marginTop: '0.5rem', padding: '0.6rem', background: 'transparent', border: 'none', color: 'var(--text-secondary)' }} onClick={() => setLinkConflictModal(false)}>
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {accountOpen && (
+          <div className="fullscreen-overlay" onClick={() => setAccountOpen(false)}>
+            <div className="stats-panel glass" onClick={e => e.stopPropagation()}>
+              <div className="stats-panel-header">
+                <h3>👤 Gestión de Cuenta</h3>
+                <button className="sheet-close-btn" onClick={() => setAccountOpen(false)}>✖</button>
+              </div>
+
+              <div className="stats-body" style={{ textAlign: 'center', padding: '1rem' }}>
+                {!authLoading && user ? (
+                  <>
+                    <div style={{ marginBottom: '2rem' }}>
+                      <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>
+                        {user.isAnonymous ? '🕵️' : '🧑‍🚀'}
+                      </div>
+                      <h4 style={{ color: 'white', margin: '0 0 0.5rem 0', fontSize: '1.2rem' }}>
+                        {user.isAnonymous ? 'Usuario Invitado' : user.displayName || 'Jugador Registrado'}
+                      </h4>
+                      {!user.isAnonymous && (
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: '0 0 0.5rem 0' }}>
+                          {user.email}
+                        </p>
+                      )}
+                      <div style={{ background: 'rgba(0,0,0,0.3)', padding: '0.4rem 0.8rem', borderRadius: '4px', fontSize: '0.75rem', color: '#94a3b8', display: 'inline-block', marginTop: '0.5rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        UID: <span style={{ fontFamily: 'monospace', userSelect: 'all' }}>{user.uid}</span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                      <button className="upgrade-btn" style={{ padding: '0.6rem 0.2rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#60a5fa', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }} onClick={() => window.open('https://bioexodus.com', '_blank')}>
+                        <span style={{ fontSize: '1.3rem' }}>🌐</span> Web
+                      </button>
+                      <button className="upgrade-btn" style={{ padding: '0.6rem 0.2rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#34d399', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }} onClick={() => setSystemMessage({ title: '💬 Soporte', text: 'Escríbenos a support@bioexodus.com\n\nPor favor, indica tu UID para cualquier consulta.' })}>
+                        <span style={{ fontSize: '1.3rem' }}>💬</span> Soporte
+                      </button>
+                      <button className="upgrade-btn" style={{ padding: '0.6rem 0.2rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fbbf24', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }} onClick={() => setSystemMessage({ title: '🏆 Ranking', text: '¡El Ranking global estará disponible próximamente!' })}>
+                        <span style={{ fontSize: '1.3rem' }}>🏆</span> Ranking
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                      {user.isAnonymous && (
+                        <button className="upgrade-btn" style={{ padding: '0.8rem', background: '#ffffff', color: '#000000', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }} onClick={handleLinkAccount}>
+                          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ width: '20px' }} />
+                          Vincular con Google
+                        </button>
+                      )}
+
+                      {!user.isAnonymous && (
+                        <button className="upgrade-btn" style={{ padding: '0.8rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: 'white' }} onClick={handleLogout}>
+                          🚪 Cerrar Sesión
+                        </button>
+                      )}
+
+                      <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,50,50,0.3)' }}>
+                        <button className="upgrade-btn" style={{ padding: '0.8rem', background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', color: '#ef4444', width: '100%' }} onClick={handleDeleteAccount}>
+                          ⚠️ Borrar Cuenta y Progreso
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ padding: '2rem', color: 'var(--text-secondary)' }}>
+                    Cargando información de cuenta...
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Stats Panel ── */}
         {statsOpen && (
           <div className="fullscreen-overlay" onClick={() => setStatsOpen(false)}>
@@ -882,12 +1133,15 @@ function App() {
         <div className="header glass">
           <div className="header-top-row">
             <div className="gold-display"><span><img src="/icons/biomasa.png" alt="Biomasa" style={{ width: '42px', height: '42px', verticalAlign: 'middle', filter: 'drop-shadow(0 0 5px rgba(132,204,22,0.8))' }} /></span> {game.formatNumber(game.gold)}</div>
-            <div style={{ display: 'flex', gap: '0rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
               <button className="stats-icon-btn" onClick={() => setShopOpen(true)} title="Tienda">
                 <img src="/icons/sup1.png" alt="Tienda" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
               </button>
               <button className="stats-icon-btn" onClick={() => setStatsOpen(true)} title="Ver Estadísticas">
                 <img src="/icons/sup2.png" alt="Estadísticas" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              </button>
+              <button className="stats-icon-btn" onClick={() => setAccountOpen(true)} title="Cuenta">
+                <img src="/icons/sup3.png" alt="Cuenta" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
               </button>
             </div>
           </div>
@@ -1857,7 +2111,7 @@ function App() {
       </div>
 
       {/* ── Tutorial Overlay (fuera del game-container para no afectar el layout flex) ── */}
-      {tutorialStep !== null && (
+      {tutorialStep !== null && !game.tutorialCompleted && (
         <TutorialOverlay
           step={tutorialStep}
           gold={game.gold}
