@@ -19,25 +19,25 @@ export const INITIAL_CHARACTERS = [
 ];
 
 const NORMAL_ENEMIES = [
-  { name: 'Sentinel-Drone',   emoji: '👁️', img: '/enemies/sentinel-drone.png' },
-  { name: 'Purge-Trooper',    emoji: '🧑‍🚀', img: '/enemies/purge-trooper.png' },
-  { name: 'Shock-Reaper',     emoji: '🕷️', img: '/enemies/shock-reaper.png' },
+  { name: 'Sentinel-Drone', emoji: '👁️', img: '/enemies/sentinel-drone.png' },
+  { name: 'Purge-Trooper', emoji: '🧑‍🚀', img: '/enemies/purge-trooper.png' },
+  { name: 'Shock-Reaper', emoji: '🕷️', img: '/enemies/shock-reaper.png' },
   { name: 'Chem-Tech Warden', emoji: '🛡️', img: '/enemies/chem-tech-warden.png' },
 ];
 
 const BOSSES = [
   { name: 'El Carnicero de Circuitos', emoji: '⚙️', img: '/enemies/boss-carnicero.png' },
   { name: 'Unidad de Contención C-04', emoji: '🧊', img: '/enemies/boss-unidad-c04.png' },
-  { name: 'La Matriarca Sintética',    emoji: '🧠', img: '/enemies/boss-matriarca.png' },
-  { name: 'Heredero de Tungsteno',     emoji: '🦾', img: '/enemies/boss-heredero.png' },
-  { name: 'Director Valerius',         emoji: '🕴️', img: '/enemies/boss-valerius.png' },
+  { name: 'La Matriarca Sintética', emoji: '🧠', img: '/enemies/boss-matriarca.png' },
+  { name: 'Heredero de Tungsteno', emoji: '🦾', img: '/enemies/boss-heredero.png' },
+  { name: 'Director Valerius', emoji: '🕴️', img: '/enemies/boss-valerius.png' },
 ];
 
 const BATTLE_BGS = ['/bg-battle.jpg', '/bg-battle2.jpg', '/bg-battle3.jpg', '/bg-battle4.jpg'];
 
 const SAVE_KEY = 'idle_clicker_save';
 
-export function useGameEngine(user, onHeroAttackCallback) {
+export function useGameEngine(user, onHeroAttackCallback, onHeroAnimStartCallback) {
   const [level, setLevel] = useState(1);
   const [gold, setGold] = useState(0);
   const [relics, setRelics] = useState(0);
@@ -54,7 +54,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
   const [shopAdRefreshes, setShopAdRefreshes] = useState(0);
   const [shopLastReset, setShopLastReset] = useState(0);
   const [shopSlotsUnlocked, setShopSlotsUnlocked] = useState(3);
-  
+
   // Upgrades Globales
   const [upgrades, setUpgrades] = useState({
     tap: 1,      // Nivel de daño base de clic
@@ -176,6 +176,8 @@ export function useGameEngine(user, onHeroAttackCallback) {
   // Referencia al callback para usarlo dentro de useEffect sin dependencias
   const onAttackRef = useRef(onHeroAttackCallback);
   onAttackRef.current = onHeroAttackCallback;
+  const onAnimStartRef = useRef(onHeroAnimStartCallback);
+  onAnimStartRef.current = onHeroAnimStartCallback;
 
   // --- SISTEMA DE GUARDADO ---
   useEffect(() => {
@@ -193,7 +195,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
           let currentId = item.id;
           const relicMap = { 'i21': 'i21b', 'i22': 'i22a', 'i23': 'i23b', 'i24': 'i24a' };
           if (relicMap[currentId]) currentId = relicMap[currentId];
-          
+
           const baseItem = ITEMS.find(it => it.id === currentId);
           if (!baseItem) return item;
 
@@ -221,7 +223,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
         if (parsed.dailyAdBoosters) {
           setDailyAdBoosters(parsed.dailyAdBoosters);
         }
-        
+
         if (parsed.upgrades) {
           setUpgrades(parsed.upgrades);
         } else if (parsed.tapDamageLevel) {
@@ -237,7 +239,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
           setCharacters(INITIAL_CHARACTERS);
         }
 
-        
+
         if (parsed.enemy) {
           if (parsed.enemy.hp === null || isNaN(parsed.enemy.hp) || parsed.enemy.hp <= 0) {
             // Si el enemigo guardado está corrupto (ej: NaN por un bug anterior), forzar regeneración
@@ -251,7 +253,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
         if (parsed.lastSaveTime) {
           const now = Date.now();
           const offlineSeconds = Math.floor((now - parsed.lastSaveTime) / 1000);
-          
+
           const savedPrestigeMultiplier = 1 + ((parsed.relics || 0) * 1.0);
           const savedTotalDps = (parsed.characters || INITIAL_CHARACTERS).reduce((acc, char) => {
             if (char.level === 0 || !(parsed.squad || []).includes(char.id)) return acc;
@@ -262,14 +264,14 @@ export function useGameEngine(user, onHeroAttackCallback) {
           if (offlineSeconds >= 5 && savedTotalDps > 0) {
             const hp = parsed.enemy?.maxHp || calcEnemyMaxHp(parsed.level || 1);
             const reward = parsed.enemy?.reward || calcEnemyGold(parsed.level || 1);
-            
+
             // Fórmula: (DPS / Vida) * Recompensa por segundo
             const goldPerSecond = (savedTotalDps / hp) * reward;
-            
+
             // Limitamos a un máximo de 24 horas (86400s)
             const maxSeconds = Math.min(offlineSeconds, 86400);
             const earnedGold = maxSeconds * goldPerSecond;
-            
+
             if (earnedGold > 0) {
               setGold(parsed.gold + earnedGold); // Sumamos directamente sobre el oro cargado
               setOfflineGoldEarned(earnedGold);
@@ -287,10 +289,10 @@ export function useGameEngine(user, onHeroAttackCallback) {
   // Autoguardado cada 5 segundos y al cerrar pestaña
   useEffect(() => {
     if (!isLoaded) return;
-    
+
     const performSave = () => {
       if (sessionStorage.getItem('isLoggingOut') === 'true') return; // Prevenir guardado onbeforeunload durante el logout
-      
+
       const st = stateRef.current;
       const saveData = {
         uid: user?.uid || null,
@@ -320,7 +322,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
 
     const interval = setInterval(performSave, 5000);
     window.addEventListener('beforeunload', performSave);
-    
+
     return () => {
       clearInterval(interval);
       window.removeEventListener('beforeunload', performSave);
@@ -383,9 +385,9 @@ export function useGameEngine(user, onHeroAttackCallback) {
           const localStr = localStorage.getItem(SAVE_KEY);
           let localData = null;
           if (localStr) {
-            try { localData = JSON.parse(localStr); } catch (e) {}
+            try { localData = JSON.parse(localStr); } catch (e) { }
           }
-          
+
           if (sessionStorage.getItem('forceCloudOverwrite') === 'true') {
             sessionStorage.removeItem('forceCloudOverwrite');
             console.log("☁️ Forzando sobreescritura de nube con progreso local tras resolución de conflicto...");
@@ -396,11 +398,11 @@ export function useGameEngine(user, onHeroAttackCallback) {
           // Si la partida de la nube es más reciente, o si el usuario local no coincide con la cuenta (ej: acaba de iniciar sesión)
           const isDifferentUser = localData && localData.uid !== user.uid;
           const isCloudNewer = cloudData.lastSaveTime && localData.lastSaveTime && cloudData.lastSaveTime > localData.lastSaveTime;
-          
+
           if (!localData || isDifferentUser || isCloudNewer) {
             console.log('☁️ Aplicando partida correcta de la nube en caliente...');
             localStorage.setItem(SAVE_KEY, JSON.stringify(cloudData));
-            
+
             // Actualización directa del estado
             setLevel(cloudData.level || 1);
             setGold(cloudData.gold || 0);
@@ -417,10 +419,10 @@ export function useGameEngine(user, onHeroAttackCallback) {
             setTutorialCompleted(!!cloudData.tutorialCompleted);
             if (cloudData.bgImage) setBgImage(cloudData.bgImage);
             if (cloudData.dailyAdBoosters) setDailyAdBoosters(cloudData.dailyAdBoosters);
-            
+
             if (cloudData.upgrades) setUpgrades(cloudData.upgrades);
             else if (cloudData.tapDamageLevel) setUpgrades(prev => ({ ...prev, tap: cloudData.tapDamageLevel }));
-            
+
             if (cloudData.characters) {
               setCharacters(INITIAL_CHARACTERS.map(bc => {
                 const sc = cloudData.characters.find(c => c.id === bc.id);
@@ -428,28 +430,28 @@ export function useGameEngine(user, onHeroAttackCallback) {
               }));
             }
             if (cloudData.inventory) {
-               const loadedInv = cloudData.inventory.map(item => {
-                 let currentId = item.id;
-                 const relicMap = { 'i21': 'i21b', 'i22': 'i22a', 'i23': 'i23b', 'i24': 'i24a' };
-                 if (relicMap[currentId]) currentId = relicMap[currentId];
-                 const baseItem = ITEMS.find(it => it.id === currentId);
-                 if (!baseItem) return item;
-                 return { ...item, ...baseItem, uid: item.uid, equippedTo: item.equippedTo };
-               });
-               setInventory(loadedInv);
+              const loadedInv = cloudData.inventory.map(item => {
+                let currentId = item.id;
+                const relicMap = { 'i21': 'i21b', 'i22': 'i22a', 'i23': 'i23b', 'i24': 'i24a' };
+                if (relicMap[currentId]) currentId = relicMap[currentId];
+                const baseItem = ITEMS.find(it => it.id === currentId);
+                if (!baseItem) return item;
+                return { ...item, ...baseItem, uid: item.uid, equippedTo: item.equippedTo };
+              });
+              setInventory(loadedInv);
             }
             if (cloudData.shopItems) {
-               setShopItems(cloudData.shopItems.map(si => {
-                 const base = ITEMS.find(it => it.id === si.itemData.id);
-                 return base ? { ...si, itemData: { ...si.itemData, ...base } } : si;
-               }));
+              setShopItems(cloudData.shopItems.map(si => {
+                const base = ITEMS.find(it => it.id === si.itemData.id);
+                return base ? { ...si, itemData: { ...si.itemData, ...base } } : si;
+              }));
             }
             if (cloudData.enemy) {
-               if (cloudData.enemy.hp === null || isNaN(cloudData.enemy.hp) || cloudData.enemy.hp <= 0) {
-                 setTimeout(() => spawnEnemy(cloudData.level || 1), 0);
-               } else {
-                 setEnemy(cloudData.enemy);
-               }
+              if (cloudData.enemy.hp === null || isNaN(cloudData.enemy.hp) || cloudData.enemy.hp <= 0) {
+                setTimeout(() => spawnEnemy(cloudData.level || 1), 0);
+              } else {
+                setEnemy(cloudData.enemy);
+              }
             }
             setCloudStatus({ msg: 'Partida descargada y aplicada ✅', type: 'success', id: Date.now() });
           } else {
@@ -513,16 +515,16 @@ export function useGameEngine(user, onHeroAttackCallback) {
     const goldBonus = inventory.filter(i => i.stat === 'gold').reduce((acc, i) => acc + i.value, 0);
     const setGoldMult = 1 + (activeSets.gold * 1.0);
     const upgradeGoldMult = 1 + (upgrades.gold * 0.1);
-    
+
     const synGoldMult = 1 + (stateRef.current.squadSynergies.contaminacionCruzada ? 0.25 : 0) + (stateRef.current.squadSynergies.mutacionPerfecta ? 0.30 : 0);
 
     // Aplicar Booster x2
     const now = Date.now();
     const hasGoldBooster = permanentVIP || (boosters.gold.expires > now);
     const boosterMult = hasGoldBooster ? 2 : 1;
-    
+
     setGold(g => g + (reward * (1 + goldBonus) * setGoldMult * upgradeGoldMult * synGoldMult * boosterMult));
-    
+
     if (isBoss) {
       // Change background randomly when a boss is defeated
       const currentBg = stateRef.current.bgImage;
@@ -530,11 +532,11 @@ export function useGameEngine(user, onHeroAttackCallback) {
       const nextBg = otherBgs[Math.floor(Math.random() * otherBgs.length)];
       setBgImage(nextBg);
     }
-    
+
     const nextLevel = level + 1;
     setLevel(nextLevel);
     spawnEnemy(nextLevel);
-    
+
     // Si se derrotó a un boss, forzar guardado en nube
     if (isBoss) {
       setTimeout(saveToCloud, 1000);
@@ -550,7 +552,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
   // Manejador de eventos de estado (Muertes y Fallos) de forma segura en React
   useEffect(() => {
     if (!isLoaded) return;
-    
+
     if (enemy.hp === 0) {
       const t = setTimeout(() => onEnemyDefeated(), 400);
       return () => clearTimeout(t);
@@ -559,9 +561,9 @@ export function useGameEngine(user, onHeroAttackCallback) {
 
   const doDamage = useCallback((amount) => {
     setEnemy(e => {
-      if (e.hp <= 0) return e; 
+      if (e.hp <= 0) return e;
       if (e.hp - amount <= 0) {
-        return { ...e, hp: 0 }; 
+        return { ...e, hp: 0 };
       }
       return { ...e, hp: e.hp - amount };
     });
@@ -601,7 +603,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
     const loop = (time) => {
       const delta = (time - lastTime) / 1000; // Delta en segundos
       lastTime = time;
-      
+
       const st = stateRef.current;
 
       // Aplicar Daño Automático (Rol RPG individual por héroe)
@@ -614,14 +616,38 @@ export function useGameEngine(user, onHeroAttackCallback) {
           const itemSpeedBonus = st.inventory
             .filter(i => i.equippedTo === char.id && i.stat === 'attackSpeed')
             .reduce((acc, i) => acc + i.value, 0);
-          
+
           const globalSpeedBonus = st.activeSets.speed * 0.5;
           const upgradeSpeedBonus = st.upgrades.speed * 0.05;
           const synSpeedBonus = st.squadSynergies.menteColmena ? 0.15 : 0;
           const overdriveSpeedBonus = st.overdriveActive ? 0.20 : 0;
           const effectiveSpeed = char.attackSpeed / (1 + itemSpeedBonus + globalSpeedBonus + upgradeSpeedBonus + synSpeedBonus + overdriveSpeedBonus);
-          
+
           newPercentages[char.id] = Math.min(100, (st.heroTimers[char.id] / effectiveSpeed) * 100);
+
+          if (st.heroAnimTriggered === undefined) st.heroAnimTriggered = {};
+
+          const animDuration = 1.0;
+
+          if (effectiveSpeed <= 1.0) {
+            if (st.heroAnimTriggered[char.id] !== 'infinite') {
+              st.heroAnimTriggered[char.id] = 'infinite';
+              if (onAnimStartRef.current) {
+                onAnimStartRef.current(char.id, 0); // 0 means infinite
+              }
+            }
+          } else {
+            if (st.heroAnimTriggered[char.id] === 'infinite') {
+              st.heroAnimTriggered[char.id] = false;
+            }
+
+            if (!st.heroAnimTriggered[char.id] && st.heroTimers[char.id] >= effectiveSpeed - animDuration) {
+              st.heroAnimTriggered[char.id] = true;
+              if (onAnimStartRef.current) {
+                onAnimStartRef.current(char.id, animDuration * 1000);
+              }
+            }
+          }
 
           if (st.heroTimers[char.id] >= effectiveSpeed) {
             const itemDpsBonus = st.inventory
@@ -632,11 +658,11 @@ export function useGameEngine(user, onHeroAttackCallback) {
             const upgradeDpsMult = 1 + (st.upgrades.dps * 0.1);
             const synDpsMult = 1 + (st.squadSynergies.sangreYHueso ? 0.10 : 0) + (st.squadSynergies.mutacionPerfecta ? 0.30 : 0);
             const charDps = calcCharDPS(char.baseDPS, char.dpsMult, char.level) * (1 + st.relics) * (1 + itemDpsBonus) * setDpsMult * upgradeDpsMult * synDpsMult;
-            
+
             const critBonus = st.inventory
               .filter(i => i.equippedTo === char.id && (i.stat === 'crit' || i.stat === 'tap'))
               .reduce((acc, i) => acc + i.value, 0);
-            
+
             const globalCritBonus = st.activeSets.crit * 0.2;
             const upgradeCritBonus = st.upgrades.crit * 0.01;
             const synCritBonus = st.squadSynergies.depredadoresApex ? 0.15 : 0;
@@ -646,17 +672,21 @@ export function useGameEngine(user, onHeroAttackCallback) {
             const now = Date.now();
             const hasDamageBooster = permanentVIP || (boosters.damage.expires > now);
             const damageBoosterMult = hasDamageBooster ? 2 : 1;
-            
+
             let damageHit = charDps * char.attackSpeed * damageBoosterMult;
             if (Math.random() < totalCritProb) {
               isCrit = true;
-              damageHit *= 2; 
+              damageHit *= 2;
             }
-            
+
             doDamage(damageHit);
-            st.heroTimers[char.id] = 0; 
+            st.heroTimers[char.id] = 0;
             newPercentages[char.id] = 0;
-            
+
+            if (effectiveSpeed > 1.0) {
+              st.heroAnimTriggered[char.id] = false;
+            }
+
             if (onAttackRef.current) {
               onAttackRef.current(char, damageHit, isCrit);
             }
@@ -672,7 +702,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
           onBossFailed();
         } else {
           setEnemy(e => {
-            if (e.timeRemaining <= 0) return e; 
+            if (e.timeRemaining <= 0) return e;
             const newTime = e.timeRemaining - delta;
             return { ...e, timeRemaining: newTime <= 0 ? 0 : newTime };
           });
@@ -709,14 +739,14 @@ export function useGameEngine(user, onHeroAttackCallback) {
   const upgradeCharacter = (id) => {
     const char = stateRef.current.characters.find(c => c.id === id);
     if (!char) return;
-    
+
     const cost = calcCharCost(char.baseCost, char.costMult, char.level);
-    
+
     // Verificamos contra la ref (que es síncrona) para evitar que clics rápidos superen el oro
     if (stateRef.current.gold >= cost) {
       stateRef.current.gold -= cost; // Descontamos inmediatamente de la ref
-      
-      const updatedChars = stateRef.current.characters.map(c => 
+
+      const updatedChars = stateRef.current.characters.map(c =>
         c.id === id ? { ...c, level: c.level + 1 } : c
       );
       stateRef.current.characters = updatedChars;
@@ -764,7 +794,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
 
     const currentLevel = upgrades[id] || 0;
     const cost = Math.ceil(conf.base * Math.pow(conf.mult, currentLevel));
-    
+
     if (stateRef.current.gold >= cost) {
       stateRef.current.gold -= cost;
       setGold(g => g - cost);
@@ -788,7 +818,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
     setInventory([]);
     setUpgrades({ tap: 1, tapCrit: 0, gold: 0, speed: 0, crit: 0, dps: 0 });
     spawnEnemy(1);
-    
+
     // Forzar guardado en la nube al hacer prestigio
     setTimeout(saveToCloud, 1000);
   };
@@ -800,7 +830,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
     const suffixes = ["", "k", "M", "B", "T", "Qa", "Qi"];
     const suffixNum = Math.floor((Math.floor(num).toString().length - 1) / 3);
     const safeSuffixNum = Math.min(suffixNum, suffixes.length - 1);
-    
+
     let shortValue = num / Math.pow(1000, safeSuffixNum);
     let formatted = shortValue.toFixed(1);
     if (formatted.endsWith('.0')) {
@@ -946,7 +976,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
   const generateShopItems = useCallback(() => {
     const newShop = [];
     const timestamp = Date.now();
-    for (let i=0; i<9; i++) {
+    for (let i = 0; i < 9; i++) {
       const rnd = Math.random() * 100;
       let stars = 1;
       if (rnd < 0.5) stars = 6;
@@ -954,16 +984,16 @@ export function useGameEngine(user, onHeroAttackCallback) {
       else if (rnd < 15) stars = 4;
       else if (rnd < 30) stars = 3;
       else if (rnd < 60) stars = 2;
-      
+
       const pool = ITEMS.filter(item => item.stars === stars);
       const chosen = pool[Math.floor(Math.random() * pool.length)] || pool[0];
       const baseCosts = { 1: 5, 2: 15, 3: 50, 4: 150, 5: 500, 6: 2000 };
-      
-      newShop.push({ 
-        id: `shop_${timestamp}_${i}_${Math.random().toString(36).substr(2, 4)}`, 
-        itemData: chosen, 
-        cost: baseCosts[stars], 
-        purchased: false 
+
+      newShop.push({
+        id: `shop_${timestamp}_${i}_${Math.random().toString(36).substr(2, 4)}`,
+        itemData: chosen,
+        cost: baseCosts[stars],
+        purchased: false
       });
     }
     setShopItems(newShop);
@@ -998,7 +1028,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
   const unlockShopSlot = useCallback(() => {
     const st = stateRef.current;
     if (st.shopSlotsUnlocked >= 9) return false;
-    
+
     // Slots 4, 5, 6 se compran con DM
     if (st.shopSlotsUnlocked < 6) {
       const costs = { 3: 50, 4: 150, 5: 500 };
@@ -1008,7 +1038,7 @@ export function useGameEngine(user, onHeroAttackCallback) {
         setShopSlotsUnlocked(prev => prev + 1);
         return true;
       }
-    } 
+    }
     // Los slots 7, 8, 9 requieren VIP Permanente
     else if (st.permanentVIP) {
       setShopSlotsUnlocked(prev => Math.min(9, prev + 1));

@@ -78,6 +78,7 @@ function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [multiRevealItems, setMultiRevealItems] = useState(null);
   const [heroAnimations, setHeroAnimations] = useState({});
+  const [heroAnimDurations, setHeroAnimDurations] = useState({});
   const [fusionModalOpen, setFusionModalOpen] = useState(false);
   const [fusionItems, setFusionItems] = useState([]);
   const [fusionConfirmData, setFusionConfirmData] = useState(null);
@@ -197,14 +198,24 @@ function App() {
 
   const squadRef = React.useRef([]);
 
+  const handleHeroAnimStart = useCallback((charId, duration) => {
+    setHeroAnimations(prev => ({ ...prev, [charId]: true }));
+    setHeroAnimDurations(prev => ({ ...prev, [charId]: duration || 1000 }));
+    if (duration > 0) {
+      setTimeout(() => {
+        setHeroAnimations(prev => ({ ...prev, [charId]: false }));
+      }, duration);
+    }
+  }, []);
+
   const handleHeroAttack = useCallback((char, damageHit, isCrit = false) => {
     const id = Date.now() + Math.random();
     const x = (40 + Math.random() * 20) + '%';
     const y = (25 + Math.random() * 15) + '%';
-    setHeroAnimations(prev => ({ ...prev, [char.id]: true }));
-    setTimeout(() => setHeroAnimations(prev => ({ ...prev, [char.id]: false })), 150);
+    
     setDpsTexts(prev => [...prev, { id, x, y, color: char.color, val: damageHit, isCrit }]);
     setTimeout(() => setDpsTexts(prev => prev.filter(t => t.id !== id)), 1000);
+    
     const enemyEl = document.getElementById('main-enemy');
     if (enemyEl) {
       enemyEl.classList.remove('enemy-hit');
@@ -213,7 +224,7 @@ function App() {
     }
   }, []);
 
-  const game = useGameEngine(user, handleHeroAttack);
+  const game = useGameEngine(user, handleHeroAttack, handleHeroAnimStart);
   squadRef.current = game.squad;
 
   React.useEffect(() => {
@@ -1219,25 +1230,19 @@ function App() {
 
             return (
               <div key={char.id}
-                className={`hero-sprite ${char.img ? 'hero-image-sprite' : ''} ${heroAnimations[char.id] ? 'hero-attacking' : ''}`}
+                className={`hero-sprite ${char.img ? 'hero-image-sprite' : ''}`}
                 style={{ ...pos, border: char.img ? 'none' : `2px solid ${char.color}`, background: char.img ? 'transparent' : undefined }}>
 
-                {/* Mini-Indicador de Ataque */}
-                <div className="mini-attack-indicator">
-                  <span className="mini-sword">🗡️</span>
-                  <svg className="mini-ring-svg" viewBox="0 0 36 36">
-                    <circle className="mini-ring-fill" cx="18" cy="18" r="16"
-                      style={{
-                        strokeDashoffset: 100 - (game.attackPercentages[char.id] || 0),
-                        stroke: char.color,
-                        transition: (game.attackPercentages[char.id] || 0) < 5 ? 'none' : 'stroke-dashoffset 0.1s linear'
-                      }} />
-                  </svg>
-                </div>
-
-                {char.img
-                  ? <img src={char.img} alt={char.name} style={{ width: '100%', height: '100%', objectFit: 'contain', filter: `drop-shadow(0 0 8px ${char.color})` }} />
-                  : <span className="hero-emoji">{char.emoji}</span>}
+                {['c1', 'c2', 'c3', 'c4', 'c5'].includes(char.id) ? (
+                  <div 
+                    className={`cepa-sprite ${char.id}-sprite ${heroAnimations[char.id] ? 'attacking' : ''}`}
+                    style={{ animationDuration: `${heroAnimDurations[char.id] || 1000}ms` }}
+                  />
+                ) : char.img ? (
+                  <img src={char.img} alt={char.name} style={{ width: '100%', height: '100%', objectFit: 'contain', filter: `drop-shadow(0 0 8px ${char.color})` }} />
+                ) : (
+                  <span className="hero-emoji">{char.emoji}</span>
+                )}
               </div>
             );
           })}
